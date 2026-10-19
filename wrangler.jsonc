@@ -1,0 +1,21 @@
+{
+	"name": "cekwakil",
+	"account_id": "a7f31d55faeecd17252f73559a39f242",
+	"compatibility_date": "2026-10-01",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "cekwakil",
+			"database_id": "a0885b1d-4867-467b-b36a-5e1e33e7358b"
+		}
+	],
+	"vars": {},
+	"assets": {
+		"directory": ".svelte-kit/cloudflare",
+		"binding": "ASSETS"
+	},
+	"observability": {
+		"enabled": true
+	}
+}
