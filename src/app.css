@@ -1,7 +1,12 @@
 /* CekWakil — calm civic data system
-   Trust-first, read-heavy. Hierarchy by weight + space, not by shouting. */
+   Trust-first, read-heavy. Hierarchy by weight + space, not by shouting.
+
+   Token ramp: setiap warna semantik punya pasangan -soft (latar) dan -line
+   (garis). Dark mode meng-override token, bukan menulis ulang komponen. */
 
 :root {
+	color-scheme: light;
+
 	/* neutral scale: cool grey, one family */
 	--n-0: #ffffff;
 	--n-25: #fbfbfa;
@@ -16,30 +21,125 @@
 
 	/* single accent, desaturated */
 	--accent: #1f5f4e;
+	--accent-hi: #174a3d;
 	--accent-soft: #eaf2ef;
 	--accent-line: #b9d3ca;
 
 	/* semantic */
 	--danger: #a4342a;
+	--danger-hi: #8b2a21;
 	--danger-soft: #faf0ee;
 	--danger-line: #e3c2bd;
 	--warn: #8a5a12;
 	--warn-soft: #fbf4e8;
+	--warn-line: #e8d5b0;
 	--ok: #2b6a44;
+	--ok-soft: #eaf2ef;
+	--ok-line: #b9d3ca;
 
 	--text: var(--n-900);
 	--text-2: var(--n-600);
 	--text-3: var(--n-500);
 	--line: var(--n-200);
 	--line-strong: var(--n-300);
+	--surface: var(--n-0);
+	--surface-sunken: var(--n-25);
+	--highlight: #fff3c4;
 
-	--radius: 3px;
-	--radius-lg: 5px;
+	--radius: 4px;
+	--radius-lg: 6px;
+	--radius-pill: 999px;
 
 	--shadow-card: 0 1px 2px rgba(28, 28, 26, 0.05);
 	--shadow-pop: 0 4px 16px rgba(28, 28, 26, 0.08);
+	--shadow-modal: 0 24px 64px rgba(28, 28, 26, 0.22);
 
 	--container: 1120px;
+	--header-h: 60px;
+	--ease: cubic-bezier(0.2, 0, 0.1, 1);
+}
+
+/* Dark: hijau aksen dinaikkan kecerahan supaya kontras tetap >= 4.5:1,
+   dan -soft digelapkan jadi tint tebal, bukan pastel.
+   Dua jalur: (a) mode "sistem" mengikuti prefers-color-scheme,
+   (b) pengguna memilih gelap manual lewat [data-theme='dark']. */
+:root[data-theme='dark'] {
+		color-scheme: dark;
+
+		--n-0: #16171a;
+		--n-25: #101113;
+		--n-50: #1c1e21;
+		--n-100: #24262a;
+		--n-200: #303338;
+		--n-300: #3f434a;
+		--n-500: #8b8f97;
+		--n-600: #a7abb2;
+		--n-700: #c4c8ce;
+		--n-900: #f0f1f3;
+
+		--accent: #7cc6ab;
+		--accent-hi: #9ad7bf;
+		--accent-soft: #17322a;
+		--accent-line: #2f5a4b;
+
+		--danger: #f08e82;
+		--danger-hi: #f5a79d;
+		--danger-soft: #331b18;
+		--danger-line: #5e2f29;
+		--warn: #e8bd74;
+		--warn-soft: #322713;
+		--warn-line: #5c4720;
+		--ok: #7cc6ab;
+		--ok-soft: #17322a;
+		--ok-line: #2f5a4b;
+
+		--surface: var(--n-0);
+		--surface-sunken: var(--n-25);
+		--highlight: #4a3d10;
+
+		--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+		--shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.5);
+	--shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+/* Mode "sistem": terapkan token gelap hanya bila pengguna tidak memilih terang. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not([data-theme='dark']) {
+	--n-0: #16171a;
+	--n-25: #101113;
+	--n-50: #1c1e21;
+	--n-100: #24262a;
+	--n-200: #303338;
+	--n-300: #3f434a;
+	--n-500: #8b8f97;
+	--n-600: #a7abb2;
+	--n-700: #c4c8ce;
+	--n-900: #f0f1f3;
+
+	--accent: #7cc6ab;
+	--accent-hi: #9ad7bf;
+	--accent-soft: #17322a;
+	--accent-line: #2f5a4b;
+
+	--danger: #f08e82;
+	--danger-hi: #f5a79d;
+	--danger-soft: #331b18;
+	--danger-line: #5e2f29;
+	--warn: #e8bd74;
+	--warn-soft: #322713;
+	--warn-line: #5c4720;
+	--ok: #7cc6ab;
+	--ok-soft: #17322a;
+	--ok-line: #2f5a4b;
+
+	--surface: var(--n-0);
+	--surface-sunken: var(--n-25);
+	--highlight: #4a3d10;
+
+	--shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+	--shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.5);
+	--shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.6);
+	}
 }
 
 * {
@@ -50,6 +150,14 @@ html {
 	-webkit-text-size-adjust: 100%;
 	/* Hilangkan kotak biru highlight saat tap di mobile */
 	-webkit-tap-highlight-color: transparent;
+	scroll-behavior: smooth;
+	scrollbar-gutter: stable;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
 }
 
 a,
@@ -68,10 +176,52 @@ body {
 	font-size: 16px;
 	line-height: 1.6;
 	color: var(--text);
-	background: var(--n-25);
+	background: var(--surface-sunken);
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
 	overflow-x: clip;
+}
+
+::selection {
+	background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* ---- focus ---- */
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* Skip link: tersembunyi sampai di-fokus lewat keyboard. */
+.skip-link {
+	position: absolute;
+	left: 12px;
+	top: -100px;
+	z-index: 100;
+	padding: 10px 16px;
+	background: var(--accent);
+	color: var(--n-0);
+	font-weight: 600;
+	font-size: 14px;
+	border-radius: var(--radius);
+	text-decoration: none;
+	transition: top 140ms var(--ease);
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+	top: 10px;
+	outline: 2px solid var(--text);
+	outline-offset: 2px;
+}
+
+/* Fallback klasik: 1px "lompatan" ke elemen pertama di body saat Tab.
+   Menjamin skip link terlihat walau browser tidak melaporkan :focus pada
+   elemen yang baru di-tab (mis. setelah navigasi SPA). */
+.skip-link:focus-within,
+body:has(.skip-link:focus) .skip-link {
+	top: 10px;
 }
 
 /* ---- type ---- */
@@ -83,6 +233,7 @@ h4 {
 	margin: 0;
 	color: var(--text);
 	letter-spacing: -0.015em;
+	text-wrap: balance;
 }
 
 h1 {
@@ -111,6 +262,7 @@ h4 {
 
 p {
 	margin: 0 0 1em;
+	text-wrap: pretty;
 }
 
 p:last-child {
@@ -140,6 +292,10 @@ b {
 	letter-spacing: -0.01em;
 }
 
+.num {
+	font-variant-numeric: tabular-nums;
+}
+
 small,
 .small {
 	font-size: 14px;
@@ -153,6 +309,26 @@ small,
 
 .muted {
 	color: var(--text-2);
+}
+
+/* Hanya untuk screen reader. */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+mark {
+	background: var(--highlight);
+	color: inherit;
+	padding: 0 1px;
+	border-radius: 2px;
 }
 
 /* ---- layout ---- */
@@ -182,7 +358,7 @@ small,
 /* ---- card ---- */
 
 .card {
-	background: var(--n-0);
+	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: var(--radius-lg);
 	padding: 20px;
@@ -218,12 +394,30 @@ small,
 	cursor: pointer;
 	text-decoration: none;
 	white-space: nowrap;
-	transition: background-color 120ms ease, border-color 120ms ease;
+	transition:
+		background-color 120ms var(--ease),
+		border-color 120ms var(--ease),
+		transform 80ms var(--ease);
+}
+
+/* Di dark mode aksen jadi terang, jadi teks di atas tombol PRIMARY harus
+   gelap. Selector-nya sengaja dibatasi ke .btn:not(variant) — kalau tidak,
+   spesifisitasnya mengalahkan .btn-secondary/.btn-ghost yang butuh teks
+   terang di atas background gelap. */
+:root[data-theme='dark'] .btn:not(.btn-secondary):not(.btn-ghost):not(.btn-danger) {
+	color: #0e1412;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not([data-theme='dark'])
+		.btn:not(.btn-secondary):not(.btn-ghost):not(.btn-danger) {
+		color: #0e1412;
+	}
 }
 
 .btn:hover {
-	background: #174a3d;
-	border-color: #174a3d;
+	background: var(--accent-hi);
+	border-color: var(--accent-hi);
 	text-decoration: none;
 }
 
@@ -232,13 +426,13 @@ small,
 }
 
 .btn:focus-visible {
-	outline: 2px solid var(--n-900);
+	outline: 2px solid var(--text);
 	outline-offset: 2px;
 }
 
 .btn-secondary {
 	color: var(--text);
-	background: var(--n-0);
+	background: var(--surface);
 	border-color: var(--line-strong);
 }
 
@@ -268,8 +462,8 @@ small,
 }
 
 .btn-danger:hover {
-	background: #8b2a21;
-	border-color: #8b2a21;
+	background: var(--danger-hi);
+	border-color: var(--danger-hi);
 }
 
 .btn-sm {
@@ -284,11 +478,13 @@ small,
 	font-size: 15px;
 }
 
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled='true'] {
 	color: var(--text-3);
 	background: var(--n-100);
 	border-color: var(--line);
 	cursor: not-allowed;
+	transform: none;
 }
 
 /* ---- form ---- */
@@ -317,14 +513,17 @@ textarea.input {
 	font-family: inherit;
 	font-size: 15px;
 	color: var(--text);
-	background: var(--n-0);
+	background: var(--surface);
 	border: 1px solid var(--line-strong);
 	border-radius: var(--radius);
-	transition: border-color 120ms ease, box-shadow 120ms ease;
+	transition:
+		border-color 120ms var(--ease),
+		box-shadow 120ms var(--ease);
 }
 
 .input::placeholder {
 	color: var(--text-3);
+	opacity: 1;
 }
 
 .input:hover {
@@ -337,7 +536,8 @@ textarea.input {
 	box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.input.error {
+.input.error,
+.input[aria-invalid='true'] {
 	border-color: var(--danger);
 }
 
@@ -345,6 +545,169 @@ textarea.input {
 	resize: vertical;
 	min-height: 96px;
 	line-height: 1.6;
+}
+
+/* ---- select: panah buatan sendiri (bukan default OS) ---- */
+
+select.input {
+	appearance: none;
+	-webkit-appearance: none;
+	padding-right: 36px;
+	cursor: pointer;
+	/* Panah chevron digambar sebagai background SVG supaya konsisten di
+	   Windows/macOS/Linux dan tetap terlihat di dark mode. */
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6.5 8 10.5l4-4' fill='none' stroke='%235c5c58' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 11px center;
+	background-size: 15px 15px;
+	text-overflow: ellipsis;
+}
+
+/* Panah select versi gelap (aktif lewat pilihan manual MAUPUN sistem). */
+:root[data-theme='dark'] select.input {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6.5 8 10.5l4-4' fill='none' stroke='%23a7abb2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not([data-theme='dark']) select.input {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6.5 8 10.5l4-4' fill='none' stroke='%23a7abb2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	}
+}
+
+select.input:focus {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6.5 8 10.5l4-4' fill='none' stroke='%231f5f4e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Opsi dropdown ditata sebisanya (kontrol penuh tidak mungkin di native). */
+select.input option {
+	color: var(--text);
+	background: var(--surface);
+}
+
+/* ---- number: spinner bawaan dibuang, diganti stepper custom ---- */
+
+.input[type='number']::-webkit-outer-spin-button,
+.input[type='number']::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.input[type='number'] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ---- date: ikon bawaan diwarnai ulang supaya tidak biru default ---- */
+
+.input[type='date'] {
+	cursor: pointer;
+}
+
+.input[type='date']::-webkit-calendar-picker-indicator {
+	opacity: 0.55;
+	cursor: pointer;
+	transition: opacity 120ms var(--ease);
+}
+
+.input[type='date']::-webkit-calendar-picker-indicator:hover {
+	opacity: 1;
+}
+
+:root[data-theme='dark'] .input[type='date']::-webkit-calendar-picker-indicator {
+	filter: invert(1);
+	opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']):not([data-theme='dark'])
+		.input[type='date']::-webkit-calendar-picker-indicator {
+		filter: invert(1);
+		opacity: 0.7;
+	}
+}
+
+/* ---- file: tombol bawaan diganti label gaya .btn ---- */
+
+.input[type='file'] {
+	padding: 7px 10px;
+	font-size: 13.5px;
+	color: var(--text-2);
+	cursor: pointer;
+}
+
+.input[type='file']::file-selector-button {
+	margin-right: 10px;
+	padding: 5px 12px;
+	font: inherit;
+	font-size: 13px;
+	font-weight: 560;
+	color: var(--text);
+	background: var(--n-50);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius);
+	cursor: pointer;
+	transition: background-color 120ms var(--ease);
+}
+
+.input[type='file']::file-selector-button:hover {
+	background: var(--n-100);
+}
+
+/* ---- search: tombol clear bawaan dimatikan (kita punya tombol sendiri) ---- */
+
+.input[type='search']::-webkit-search-cancel-button,
+.qfield::-webkit-search-cancel-button {
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+/* ---- field dengan prefix/suffix (Rp, satuan) ---- */
+
+.field-affix {
+	display: flex;
+	align-items: stretch;
+	background: var(--surface);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--radius);
+	transition:
+		border-color 120ms var(--ease),
+		box-shadow 120ms var(--ease);
+}
+
+.field-affix:hover {
+	border-color: var(--n-500);
+}
+
+.field-affix:focus-within {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field-affix .input {
+	border: none;
+	background: none;
+	box-shadow: none;
+	min-height: 38px;
+}
+
+.field-affix .input:focus {
+	border: none;
+	box-shadow: none;
+}
+
+.affix {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 4px 0 12px;
+	font-size: 14px;
+	font-weight: 560;
+	color: var(--text-2);
+	white-space: nowrap;
+	user-select: none;
+}
+
+.affix.suffix {
+	padding: 0 12px 0 4px;
 }
 
 .helper {
@@ -370,7 +733,7 @@ textarea.input {
 	color: var(--text-2);
 	background: var(--n-50);
 	border: 1px solid var(--line);
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	text-decoration: none;
 	white-space: nowrap;
 }
@@ -385,6 +748,13 @@ textarea.input {
 	color: var(--accent);
 	background: var(--accent-soft);
 	border-color: var(--accent-line);
+}
+
+.chip-kategori {
+	font-size: 12.5px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	padding: 2px 10px;
 }
 
 .status {
@@ -402,14 +772,14 @@ textarea.input {
 
 .status-success {
 	color: var(--ok);
-	background: var(--accent-soft);
-	border-color: var(--accent-line);
+	background: var(--ok-soft);
+	border-color: var(--ok-line);
 }
 
 .status-warning {
 	color: var(--warn);
 	background: var(--warn-soft);
-	border-color: #e8d5b0;
+	border-color: var(--warn-line);
 }
 
 .status-error {
@@ -435,7 +805,7 @@ textarea.input {
 	border: 1px solid var(--line);
 	border-left: 3px solid var(--n-500);
 	border-radius: var(--radius);
-	background: var(--n-0);
+	background: var(--surface);
 }
 
 .notice-info {
@@ -470,15 +840,26 @@ textarea.input {
 	.btn {
 		min-height: 44px;
 	}
+	.btn-sm {
+		min-height: 36px;
+	}
+	.input,
+	select.input {
+		/* 16px mencegah iOS auto-zoom saat field difokus. */
+		font-size: 16px;
+	}
 	.btn-block-mobile {
 		width: 100%;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	* {
-		transition: none !important;
-		animation: none !important;
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
 	}
 }
 
@@ -496,7 +877,12 @@ textarea.input {
 	content: '';
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+	background: linear-gradient(
+		90deg,
+		transparent,
+		color-mix(in srgb, var(--n-0) 60%, transparent),
+		transparent
+	);
 	transform: translateX(-100%);
 	animation: shimmer 1.4s infinite;
 }
@@ -523,7 +909,7 @@ textarea.input {
 }
 .skeleton-card {
 	padding: 18px 20px;
-	background: var(--n-0);
+	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: var(--radius-lg);
 	margin-bottom: 12px;
@@ -532,11 +918,38 @@ textarea.input {
 	display: inline-block;
 	height: 22px;
 	width: 90px;
-	border-radius: 999px;
+	border-radius: var(--radius-pill);
 	margin-bottom: 12px;
 }
 @media (prefers-reduced-motion: reduce) {
 	.skeleton::after {
 		animation: none;
+	}
+}
+
+/* ---- print: arsip harus bisa dicetak sebagai bukti ---- */
+@media print {
+	.site-header,
+	.site-footer,
+	.no-print {
+		display: none !important;
+	}
+	body {
+		background: #fff;
+		color: #000;
+	}
+	.card,
+	.entry {
+		box-shadow: none;
+		border-color: #ccc;
+		break-inside: avoid;
+	}
+	a {
+		color: #000;
+	}
+	a[href^='http']::after {
+		content: ' (' attr(href) ')';
+		font-size: 11px;
+		word-break: break-all;
 	}
 }

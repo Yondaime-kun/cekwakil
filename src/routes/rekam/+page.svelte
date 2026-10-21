@@ -1,14 +1,14 @@
 <script lang="ts">
+	import PejabatPicker from '#lib/components/PejabatPicker.svelte';
+	import NumberField from '#lib/components/NumberField.svelte';
+
 	let { data, form } = $props();
 	let mengirim = $state(false);
 	const pejabat = $derived(data.pejabat as Array<Record<string, unknown>>);
-	let cari = $state('');
-	let dipilih = $state<Record<string, unknown> | null>(null);
-	const hasil = $derived(
-		cari.trim().length < 2
-			? []
-			: pejabat.filter((p) => String(p.nama).toLowerCase().includes(cari.toLowerCase())).slice(0, 8)
-	);
+	const terpilihAwal = $derived((data.terpilih as Record<string, unknown> | null) ?? null);
+	const tahunIni = new Date().getFullYear();
+	// Cukup untuk konteks; ukuran dihitung sederhana.
+	let uraianPanjang = $state(0);
 </script>
 
 <svelte:head>
@@ -19,72 +19,81 @@
 <section class="container section narrow">
 	<h1>Tambah rekam jejak</h1>
 	<p class="small muted intro">
-		Catat skandal, dugaan pelanggaran, atau rapor kerja seorang pejabat — dengan sumber berita.
-		Entri langsung tayang; yang tidak disertai sumber bisa dilaporkan dan ditarik.
+		Catat skandal, dugaan pelanggaran, atau rapor kerja seorang pejabat — <strong>dengan sumber berita</strong>.
+		Entri langsung tayang; yang tidak bersumber bisa dilaporkan dan ditarik.
 	</p>
 
 	{#if form?.ok}
-		<div class="card notice ok">
-			<p class="small"><strong>Tersimpan.</strong> Muncul di profil pejabat bagian Rekam jejak.</p>
-			{#if form.slug}
-				<a class="btn btn-secondary btn-sm" href={`/pejabat/${form.slug}`}>Lihat profil</a>
-			{/if}
-		</div>
-	{:else}
-		{#if form?.message}<p class="small err">{form.message}</p>{/if}
-		<form method="POST" class="card form" onsubmit={(e) => { if (mengirim) e.preventDefault(); else mengirim = true; }}>
-			<div class="fgroup">
-				<span class="label">Pejabat</span>
-				<input type="hidden" name="pejabat_id" value={dipilih ? dipilih.id : ''} />
-				<input
-					class="input"
-					type="search"
-					placeholder="Ketik nama pejabat..."
-					bind:value={cari}
-					oninput={() => (dipilih = null)} />
-				{#if dipilih}
-					<p class="helper">Dipilih: <strong>{dipilih.nama}</strong></p>
-				{:else if hasil.length > 0}
-					<ul class="hasil">
-						{#each hasil as p (p.id)}
-							<li>
-								<button type="button" onclick={() => { dipilih = p; cari = String(p.nama); }}>
-									{p.nama}
-								</button>
-							</li>
-						{/each}
-					</ul>
+		<div class="card notice notice-info">
+			<div>
+				<p class="small">
+					<strong>Tersimpan.</strong> Entri ini sekarang muncul di bagian “Rekam jejak” pada profil.
+				</p>
+				{#if form.slug}
+					<a class="btn btn-secondary btn-sm" href={`/pejabat/${form.slug}`}>Lihat profil →</a>
 				{/if}
 			</div>
+		</div>
+	{:else}
+		{#if form?.message}<p class="notice notice-error tiny" role="alert">{form.message}</p>{/if}
+		<form
+			method="POST"
+			class="card form"
+			onsubmit={(e) => {
+				if (mengirim) e.preventDefault();
+				else mengirim = true;
+			}}
+		>
+			<PejabatPicker {pejabat} awal={terpilihAwal} />
 
 			<div class="fgroup">
-				<label class="label" for="judul">Judul kasus/peristiwa</label>
+				<label class="label" for="judul">Judul peristiwa <span class="req">wajib</span></label>
 				<input
 					class="input"
 					id="judul"
 					name="judul"
 					required
-					placeholder="Contoh: Dugaan pelanggaran etik soal wisuda kampus" />
+					placeholder="Contoh: Dugaan pelanggaran etik soal wisuda kampus"
+				/>
 			</div>
 
 			<div class="fgroup">
-				<label class="label" for="uraian">Uraian singkat (opsional)</label>
-				<textarea class="input" id="uraian" name="uraian" rows="3"
-					placeholder="Apa yang terjadi, apa statusnya sekarang..."></textarea>
+				<label class="label" for="uraian">Uraian singkat <span class="muted">(opsional)</span></label>
+				<textarea
+					class="input"
+					id="uraian"
+					name="uraian"
+					rows="3"
+					maxlength="1200"
+					oninput={(e) => (uraianPanjang = e.currentTarget.value.length)}
+					placeholder="Apa yang terjadi, siapa yang menangani, apa statusnya sekarang…"></textarea>
+				<p class="helper">{uraianPanjang}/1200</p>
 			</div>
 
 			<div class="two">
-				<div class="fgroup">
-					<label class="label" for="tahun">Tahun</label>
-					<input class="input" id="tahun" name="tahun" type="number" min="1990" max="2100" required />
-				</div>
+				<NumberField
+					name="tahun"
+					id="tahun"
+					label="Tahun"
+					min={1990}
+					max={tahunIni}
+					placeholder={String(tahunIni)}
+					required
+				/>
 				<div class="fgroup">
 					<label class="label" for="sumber_url">Tautan berita</label>
-					<input class="input" id="sumber_url" name="sumber_url" type="url" required placeholder="https://..." />
+					<input class="input" id="sumber_url" name="sumber_url" type="url" required placeholder="https://…" />
 				</div>
 			</div>
 
-			<button class="btn" type="submit" disabled={mengirim}>{mengirim ? "Menyimpan..." : "Tambahkan"}</button>
+			<p class="tiny muted rule">
+				Tulis netral dan faktual. Sebutkan status (baru dilaporkan, sedang diperiksa, sudah divonis) —
+				jangan menyimpulkan sendiri.
+			</p>
+
+			<button class="btn" type="submit" disabled={mengirim}>
+				{mengirim ? 'Menyimpan…' : 'Tambahkan'}
+			</button>
 		</form>
 	{/if}
 </section>
@@ -92,6 +101,7 @@
 <style>
 	.intro {
 		margin: 8px 0 18px;
+		max-width: 62ch;
 	}
 	.form {
 		display: flex;
@@ -104,36 +114,23 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 12px;
 	}
-	.hasil {
-		list-style: none;
-		margin: 6px 0 0;
-		padding: 4px;
-		border: 1px solid var(--line);
-		border-radius: var(--radius);
-		background: var(--n-25);
-		max-height: 220px;
-		overflow-y: auto;
+	.req {
+		font-size: 10.5px;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--danger);
+		margin-left: 4px;
 	}
-	.hasil button {
-		width: 100%;
-		text-align: left;
-		padding: 9px 10px;
-		border: none;
-		border-radius: 6px;
-		background: none;
-		font: inherit;
-		font-size: 14px;
-		cursor: pointer;
-	}
-	.hasil button:hover {
+	.rule {
+		margin: -4px 0 0;
+		padding: 10px 12px;
 		background: var(--n-50);
+		border-left: 2px solid var(--line-strong);
+		border-radius: 0 var(--radius) var(--radius) 0;
 	}
 	.form .btn {
 		width: 100%;
-	}
-	.err {
-		color: var(--danger);
-		margin: 0;
 	}
 	@media (max-width: 520px) {
 		.two {

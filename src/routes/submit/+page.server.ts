@@ -3,14 +3,23 @@ import { getDB } from '#lib/db';
 import { validateSubmission, slugify } from '#lib/utils';
 import { archiveUrl } from '#lib/archive';
 import { normalisasiNama } from '#lib/nama';
+import { parseTag, simpanTag } from '#lib/tag';
+import { tulisRevisi, rapikanNama, sidikPerangkat } from '#lib/revisi';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ url }) => {
 	const db = getDB();
 	const rows = await db
 		.prepare(`SELECT id, nama, slug, jabatan, partai FROM pejabat ORDER BY nama`)
 		.all();
-	return { pejabat: rows.results ?? [] };
+	const pejabat = rows.results ?? [];
+
+	// Tombol "+ Kutipan untuk dia" di profil mengirim ?pejabat=<slug>,
+	// jadi form langsung terisi orangnya tanpa harus mencari ulang.
+	const slug = (url.searchParams.get('pejabat') ?? '').trim();
+	const terpilih = slug ? (pejabat.find((p) => (p as { slug: string }).slug === slug) ?? null) : null;
+
+	return { pejabat, terpilih };
 };
 
 export const actions: Actions = {
@@ -100,6 +109,23 @@ export const actions: Actions = {
 			.run();
 
 		const pernyataanId = Number(ins.meta.last_row_id);
+
+		// Revisi #1 + tag: entri baru sengaja BELUM diverifikasi (kolom
+		// diverifikasi_at dibiarkan NULL) supaya masuk antrean /tinjau.
+		await tulisRevisi(db, pernyataanId, {
+			aksi: 'buat',
+			isi,
+			konteks,
+			kategori,
+			tanggal,
+			sumber_url: daftarSumber[0],
+			status: 'published',
+			catatan: 'Dikirim publik',
+			oleh: rapikanNama(body.submitter),
+			olehHash: await sidikPerangkat(request)
+		});
+		await simpanTag(db, pernyataanId, parseTag(String(body.tag ?? '')));
+
 		for (let i = 0; i < daftarSumber.length; i++) {
 			await db
 				.prepare(`INSERT INTO sumber (pernyataan_id, url, arsip_url) VALUES (?, ?, ?)`)

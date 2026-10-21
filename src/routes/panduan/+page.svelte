@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
-
 	// Ensiklopedia singkat: bagaimana DPR bekerja dan kenapa arsip ini penting.
 	const bagian = [
 		{
@@ -71,32 +69,55 @@
 		}
 	];
 
-	const aktif = $derived(page.url.hash.replace('#', '') || bagian[0].id);
+	// Scroll-spy: aktif = bagian terakhir yang judulnya sudah lewat atas viewport.
+	let aktif = $state(bagian[0].id);
+
+	$effect(() => {
+		const els = bagian
+			.map((b) => document.getElementById(b.id))
+			.filter((el): el is HTMLElement => el !== null);
+
+		const obs = new IntersectionObserver(
+			(entries) => {
+				const terlihat = entries
+					.filter((e) => e.isIntersecting)
+					.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+				if (terlihat[0]) aktif = terlihat[0].target.id;
+			},
+			// Garis aktif sedikit di bawah header sticky.
+			{ rootMargin: '-90px 0px -70% 0px' }
+		);
+		els.forEach((el) => obs.observe(el));
+		return () => obs.disconnect();
+	});
 </script>
 
 <svelte:head>
 	<title>Panduan sistem DPR - CekWakil</title>
 	<meta
 		name="description"
-		content="Penjelasan singkat cara kerja DPR: fungsi, dapil, komisi, fraksi, hak angket, PAW, LHKPN, dan cara ikut menjaga arsip." />
+		content="Penjelasan singkat cara kerja DPR: fungsi, dapil, komisi, fraksi, hak angket, PAW, LHKPN, dan cara ikut menjaga arsip."
+	/>
 </svelte:head>
 
 <section class="container section">
 	<h1>Panduan sistem DPR</h1>
 	<p class="small muted intro">
-		Arsip ini hanya berguna kalau pembacanya tahu konteks kelembagaannya. Ini ringkasan singkat
-		untuk membacanya dengan tepat — ditulis netral, tanpa tendensi politik.
+		Arsip ini hanya berguna kalau pembacanya tahu konteks kelembagaannya. Ini ringkasan singkat untuk
+		membacanya dengan tepat — ditulis netral, tanpa tendensi politik.
 	</p>
 
 	<div class="layout">
 		<nav class="toc" aria-label="Daftar bagian">
-			{#each bagian as b (b.id)}
-				<a href={`#${b.id}`} class:active={aktif === b.id}>{b.judul}</a>
+			{#each bagian as b, i (b.id)}
+				<a href={`#${b.id}`} class:active={aktif === b.id}>
+					<span class="n num">{String(i + 1).padStart(2, '0')}</span>{b.judul}
+				</a>
 			{/each}
 		</nav>
 
 		<div class="isi">
-			{#each bagian as b (b.id)}
+			{#each bagian as b, i (b.id)}
 				<article id={b.id}>
 					<h2>{b.judul}</h2>
 					{#each b.isi as p (p)}
@@ -108,10 +129,22 @@
 			<article class="sumbercat">
 				<h2>Sumber rujukan</h2>
 				<ul>
-					<li><a href="https://www.dpr.go.id" target="_blank" rel="noopener noreferrer">Situs resmi DPR RI</a> — struktur komisi, jadwal rapat, berita.</li>
-					<li><a href="https://elhkpn.kpk.go.id" target="_blank" rel="noopener noreferrer">e-LHKPN KPK</a> — laporan harta penyelenggara negara.</li>
-					<li><a href="https://peraturan.bpk.go.id" target="_blank" rel="noopener noreferrer">JDIH BPK</a> — teks UU 17/2014 tentang MPR, DPR, DPD, DPRD.</li>
-					<li><a href="https://kpu.go.id" target="_blank" rel="noopener noreferrer">KPU</a> — data pemilu dan perolehan suara resmi.</li>
+					<li>
+						<a href="https://www.dpr.go.id" target="_blank" rel="noopener noreferrer">Situs resmi DPR RI</a>
+						<span>struktur komisi, jadwal rapat, berita.</span>
+					</li>
+					<li>
+						<a href="https://elhkpn.kpk.go.id" target="_blank" rel="noopener noreferrer">e-LHKPN KPK</a>
+						<span>laporan harta penyelenggara negara.</span>
+					</li>
+					<li>
+						<a href="https://peraturan.bpk.go.id" target="_blank" rel="noopener noreferrer">JDIH BPK</a>
+						<span>teks UU 17/2014 tentang MPR, DPR, DPD, DPRD.</span>
+					</li>
+					<li>
+						<a href="https://kpu.go.id" target="_blank" rel="noopener noreferrer">KPU</a>
+						<span>data pemilu dan perolehan suara resmi.</span>
+					</li>
 				</ul>
 			</article>
 		</div>
@@ -125,40 +158,47 @@
 	}
 	.layout {
 		display: grid;
-		grid-template-columns: 220px minmax(0, 1fr);
-		gap: 36px;
+		grid-template-columns: 240px minmax(0, 1fr);
+		gap: 40px;
 		align-items: start;
 	}
 	.toc {
 		position: sticky;
-		top: 78px;
+		top: calc(var(--header-h) + 20px);
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
 		border-left: 1px solid var(--line);
 	}
 	.toc a {
-		padding: 6px 0 6px 12px;
+		display: flex;
+		gap: 8px;
+		padding: 7px 0 7px 12px;
+		margin-left: -1px;
 		font-size: 13.5px;
-		color: var(--muted);
+		line-height: 1.4;
+		color: var(--text-2);
 		text-decoration: none;
 		border-left: 2px solid transparent;
-		margin-left: -1px;
 	}
 	.toc a:hover {
 		color: var(--text);
 	}
 	.toc a.active {
 		color: var(--text);
-		font-weight: 600;
+		font-weight: 620;
 		border-left-color: var(--accent);
 	}
+	.n {
+		font-size: 11px;
+		color: var(--text-3);
+		padding-top: 2px;
+	}
 	article {
-		margin-bottom: 34px;
-		scroll-margin-top: 78px;
+		margin-bottom: 36px;
+		scroll-margin-top: calc(var(--header-h) + 16px);
 	}
 	article h2 {
-		font-size: 20px;
+		font-size: 21px;
 		margin-bottom: 10px;
 	}
 	article p {
@@ -172,18 +212,24 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 8px;
 		max-width: 68ch;
 	}
 	.sumbercat li {
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
 		padding: 11px 14px;
-		background: var(--n-0);
+		background: var(--surface);
 		border: 1px solid var(--line);
 		border-radius: var(--radius-lg);
-		font-size: 14.5px;
-		color: var(--text-2);
+		font-size: 14px;
 	}
-	@media (max-width: 760px) {
+	.sumbercat li span {
+		color: var(--text-2);
+		font-size: 13px;
+	}
+	@media (max-width: 860px) {
 		.layout {
 			grid-template-columns: 1fr;
 			gap: 20px;
@@ -194,18 +240,24 @@
 			flex-wrap: wrap;
 			gap: 6px;
 			border-left: none;
+			padding-bottom: 12px;
+			border-bottom: 1px solid var(--line);
 		}
 		.toc a {
 			border: 1px solid var(--line);
-			border-radius: 999px;
+			border-radius: var(--radius-pill);
 			padding: 5px 11px;
 			margin: 0;
 			font-size: 12.5px;
+			background: var(--surface);
+			align-items: center;
 		}
 		.toc a.active {
-			background: var(--n-100);
-			border-color: var(--line-strong);
-			border-left-color: var(--line-strong);
+			background: var(--accent-soft);
+			border-color: var(--accent-line);
+		}
+		.n {
+			padding-top: 0;
 		}
 		article {
 			scroll-margin-top: 12px;

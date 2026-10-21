@@ -2,10 +2,13 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getDB } from '#lib/db';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ url }) => {
 	const db = getDB();
 	const rows = await db.prepare(`SELECT id, nama, slug FROM pejabat ORDER BY nama`).all();
-	return { pejabat: rows.results ?? [] };
+	const pejabat = rows.results ?? [];
+	const slug = (url.searchParams.get('pejabat') ?? '').trim();
+	const terpilih = slug ? (pejabat.find((p) => (p as { slug: string }).slug === slug) ?? null) : null;
+	return { pejabat, terpilih };
 };
 
 // Tambah rekam jejak (skandal/rapor kerja) dari publik, ala wiki.

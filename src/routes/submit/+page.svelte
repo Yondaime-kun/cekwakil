@@ -1,25 +1,46 @@
 <script lang="ts">
 	import { KATEGORI } from '#lib/types';
+	import { normalisasiNama } from '#lib/nama';
+	import Select from '#lib/components/Select.svelte';
 
 	let { data, form } = $props();
 	let mengirim = $state(false);
 	const pejabat = $derived(data.pejabat as Array<Record<string, unknown>>);
 
+	// Kalau datang dari tombol "kutipan untuk dia" (?pejabat=slug), langsung
+	// terpilih. Kalau tidak, mode pencarian biasa.
+	// svelte-ignore state_referenced_locally
+	const awal = data.terpilih as Record<string, unknown> | null;
 	let mode = $state<'existing' | 'new'>('existing');
-	let cari = $state('');
-	let terpilih = $state<Record<string, unknown> | null>(null);
+	// svelte-ignore state_referenced_locally
+	let cari = $state(awal ? String(awal.nama) : '');
+	// svelte-ignore state_referenced_locally
+	let terpilih = $state<Record<string, unknown> | null>(awal);
 	let sumber = $state(['']);
 
 	const values = $derived((form?.values ?? {}) as Record<string, string>);
 	const errors = $derived((form?.errors ?? []) as string[]);
 
-	const hasil = $derived(
-		cari.trim().length < 2
-			? []
-			: pejabat
-					.filter((p) => String(p.nama).toLowerCase().includes(cari.trim().toLowerCase()))
-					.slice(0, 8)
-	);
+	// Pencarian: utamakan nama yang diawali, lalu substring, lalu kemiripan
+	// nama tanpa gelar — supaya "Ahmad Fauzi" tetap ketemu "Ir. H. Ahmad Fauzi".
+	const hasil = $derived.by(() => {
+		const term = cari.trim().toLowerCase();
+		if (term.length < 2) return [];
+		const norm = normalisasiNama(cari);
+		const skor = (p: Record<string, unknown>) => {
+			const nama = String(p.nama).toLowerCase();
+			if (nama.startsWith(term)) return 0;
+			if (nama.includes(term)) return 1;
+			if (normalisasiNama(String(p.nama)).includes(norm)) return 2;
+			return 9;
+		};
+		return pejabat
+			.map((p) => ({ p, s: skor(p) }))
+			.filter((x) => x.s < 9)
+			.sort((a, b) => a.s - b.s || String(a.p.nama).localeCompare(String(b.p.nama)))
+			.slice(0, 8)
+			.map((x) => x.p);
+	});
 
 	function pilih(p: Record<string, unknown>) {
 		terpilih = p;
@@ -31,40 +52,56 @@
 	function hapusSumber(i: number) {
 		sumber = sumber.filter((_, idx) => idx !== i);
 	}
+
+	const konteks = $derived(values.konteks ?? '');
+	const hariIni = new Date().toISOString().slice(0, 10);
+	// Tanggal peristiwa tidak boleh di masa depan — sumbernya belum ada.
+	const tanggalValid = $derived(!values.tanggal || values.tanggal <= hariIni);
+	const isiValid = $derived(!values.isi || values.isi.trim().length >= 20);
+	const konteksValid = $derived(!konteks || konteks.trim().length >= 10);
 </script>
 
 <svelte:head>
 	<title>Lapor pernyataan - CekWakil</title>
 	<meta
 		name="description"
-		content="Kirim kutipan pernyataan pejabat beserta tautan sumber berita. Langsung tayang, bisa dikoreksi." />
+		content="Kirim kutipan pernyataan pejabat beserta tautan sumber berita. Langsung tayang, bisa dikoreksi siapa pun."
+	/>
+	<meta name="robots" content="noindex" />
 </svelte:head>
 
 <section class="container section narrow">
 	<h1>Lapor pernyataan</h1>
 	<p class="intro muted">
-		Salin kutipan kata demi kata dan sertakan tautan sumbernya. Laporan langsung tayang — sama
-		seperti wiki — dan peninjau akan mengoreksi atau membatalkan kalau tidak sesuai sumber.
+		Salin kutipan <strong>kata demi kata</strong> dan sertakan tautan sumbernya. Laporan langsung
+		tayang — model wiki — dan siapa pun bisa mengoreksi kalau tidak sesuai sumber.
 	</p>
 
 	{#if form?.success}
-		<div class="card notice notice-info ok">
+		<div class="card notice notice-info done">
 			<div>
-				<h3>Terbit</h3>
+				<h3>Terbit — terima kasih</h3>
 				<p class="small">
-					Entri kamu sudah tayang di arsip publik. Kalau ada yang keliru, siapa pun bisa
-					melaporkan revisi.
+					Kutipanmu sudah tayang di arsip publik{#if form.id} (entri #{form.id}){/if}. Tiap sumber
+					sedang diarsipkan ke Wayback Machine supaya tetap bisa dibuka walau artikel aslinya hilang.
 				</p>
 				<p class="btns">
-					<a href="/blunder" class="btn btn-secondary btn-sm">Lihat arsip</a>
-					<a href="/submit" class="btn btn-ghost btn-sm">Lapor lagi</a>
+					<a href="/blunder" class="btn btn-sm">Lihat arsip</a>
+					<a href="/submit" class="btn btn-secondary btn-sm">Lapor lagi</a>
 				</p>
 			</div>
 		</div>
 	{:else}
-		<form method="POST" class="card form" onsubmit={(e) => { if (mengirim) e.preventDefault(); else mengirim = true; }}>
+		<form
+			method="POST"
+			class="card form"
+			onsubmit={(e) => {
+				if (mengirim) e.preventDefault();
+				else mengirim = true;
+			}}
+		>
 			{#if errors.length > 0}
-				<div class="notice notice-error">
+				<div class="notice notice-error" role="alert" tabindex="-1" id="ringkasan-error">
 					<div>
 						<strong>Perbaiki dulu:</strong>
 						<ul>
@@ -77,12 +114,12 @@
 			<fieldset>
 				<legend class="label">Pejabat</legend>
 				<div class="moderow">
-					<label class="chip" class:chip-active={mode === 'existing'}>
-						<input type="radio" name="mode" value="existing" bind:group={mode} hidden />
+					<label class="seg" class:aktif={mode === 'existing'}>
+						<input type="radio" name="mode" value="existing" bind:group={mode} />
 						Cari dari daftar
 					</label>
-					<label class="chip" class:chip-active={mode === 'new'}>
-						<input type="radio" name="mode" value="new" bind:group={mode} hidden />
+					<label class="seg" class:aktif={mode === 'new'}>
+						<input type="radio" name="mode" value="new" bind:group={mode} />
 						Nama baru
 					</label>
 				</div>
@@ -93,12 +130,20 @@
 						<input
 							class="input"
 							type="search"
-							placeholder="Ketik nama pejabat..."
+							placeholder="Ketik nama pejabat… (gelar boleh dipakai/tidak)"
 							bind:value={cari}
 							autocomplete="off"
-							oninput={() => (terpilih = null)} />
+							aria-label="Cari pejabat"
+							oninput={() => {
+								if (terpilih && cari !== String(terpilih.nama)) terpilih = null;
+							}}
+						/>
 						{#if terpilih}
-							<p class="helper dipilih">Dipilih: <strong>{terpilih.nama}</strong></p>
+							<p class="helper dipilih">
+								<span class="check" aria-hidden="true">✓</span> Dipilih:
+								<strong>{terpilih.nama}</strong>
+								<span class="muted">— {[terpilih.jabatan, terpilih.partai].filter(Boolean).join(' · ')}</span>
+							</p>
 						{:else if hasil.length > 0}
 							<ul class="hasil">
 								{#each hasil as p (p.id)}
@@ -113,7 +158,9 @@
 								{/each}
 							</ul>
 						{:else if cari.trim().length >= 2}
-							<p class="helper">Tidak ada yang cocok. Pakai tab “Nama baru”.</p>
+							<p class="helper">
+								Tidak ada yang cocok. Pakai “Nama baru” kalau memang belum terdaftar.
+							</p>
 						{/if}
 					</div>
 				{:else}
@@ -123,53 +170,98 @@
 						id="nama_pejabat_baru"
 						name="nama_pejabat_baru"
 						value={values.nama_pejabat_baru ?? ''}
-						placeholder="Contoh: Budi Santoso" />
-					<p class="helper">Profil baru dibuat otomatis. Jabatan bisa dilengkapi peninjau.</p>
+						placeholder="Contoh: Budi Santoso"
+						autocomplete="off"
+					/>
+					<p class="helper">
+						Profil baru dibuat otomatis. Gelar di nama akan dinormalisasi untuk mencegah duplikat.
+					</p>
 				{/if}
 			</fieldset>
 
 			<div class="fgroup">
-				<label class="label" for="isi">Kutipan pernyataan (kata demi kata)</label>
+				<label class="label" for="isi">
+					Kutipan pernyataan <span class="req">wajib</span>
+				</label>
 				<textarea
 					class="input"
+					class:error={!isiValid}
 					id="isi"
 					name="isi"
 					rows="4"
 					required
-					placeholder="Tulis persis kalimat yang diucapkan...">{values.isi ?? ''}</textarea>
+					aria-describedby="isi-help"
+					aria-invalid={!isiValid}
+					placeholder="Tulis persis kalimat yang diucapkan, tanpa mengubah kata…"
+				>{values.isi ?? ''}</textarea>
+				<p class="helper" id="isi-help" class:error={!isiValid}>
+					{#if !isiValid}
+						Kurang dari 20 karakter — kutipan terlalu pendek untuk diverifikasi.
+					{:else}
+						Min. 20 karakter. Jangan tambahkan tanda kutip di awal/akhir, jangan rapikan kalimatnya.
+					{/if}
+				</p>
 			</div>
 
 			<div class="fgroup">
-				<label class="label" for="konteks">Konteks singkat</label>
+				<label class="label" for="konteks">
+					Konteks <span class="req">wajib</span>
+				</label>
 				<textarea
 					class="input"
+					class:error={!konteksValid}
 					id="konteks"
 					name="konteks"
 					rows="2"
-					placeholder="Di mana, pada acara apa, kenapa pernyataan ini jadi sorotan...">{values.konteks ??
-						''}</textarea>
+					aria-invalid={!konteksValid}
+					placeholder="Di mana, pada acara apa, dan kenapa jadi sorotan…"
+				>{konteks}</textarea>
+				<p class="helper" class:error={!konteksValid}>
+					Konteks menjaga kutipan tidak dibaca di luar situasinya. Min. 10 karakter.
+				</p>
 			</div>
 
 			<div class="two">
-				<div class="fgroup">
-					<label class="label" for="kategori">Kategori</label>
-					<select class="input" id="kategori" name="kategori" required>
-						<option value="" disabled selected={!values.kategori}>Pilih kategori...</option>
-						{#each KATEGORI as k (k)}
-							<option value={k} selected={k === values.kategori}>{k}</option>
-						{/each}
-					</select>
-				</div>
+				<Select
+					label="Kategori"
+					ariaLabel="Kategori pernyataan"
+					name="kategori"
+					value={values.kategori ?? ''}
+					placeholder="Pilih kategori…"
+					options={KATEGORI.map((k) => ({ value: k, label: k }))}
+				/>
 				<div class="fgroup">
 					<label class="label" for="tanggal">Tanggal pernyataan</label>
 					<input
 						class="input"
+						class:error={!tanggalValid}
 						id="tanggal"
 						name="tanggal"
 						type="date"
 						required
-						value={values.tanggal ?? ''} />
+						max={hariIni}
+						value={values.tanggal ?? ''}
+					/>
+					{#if !tanggalValid}
+						<p class="helper error">Tanggal tidak boleh di masa depan.</p>
+					{/if}
 				</div>
+			</div>
+
+			<div class="fgroup">
+				<label class="label" for="tag">Tag <span class="muted">(opsional)</span></label>
+				<input
+					class="input"
+					id="tag"
+					name="tag"
+					value={values.tag ?? ''}
+					placeholder="anggaran, etik, mbg"
+					autocomplete="off"
+				/>
+				<p class="helper">
+					Pisahkan dengan koma, maksimal 5. Tag membantu orang menemukan pola antar pernyataan —
+					kategori sudah ada, tag menjawab “soal apa”.
+				</p>
 			</div>
 
 			<div class="fgroup">
@@ -181,10 +273,11 @@
 							name="sumber_url"
 							type="url"
 							required={i === 0}
-							placeholder="https://..."
-							aria-label={`Sumber ${i + 1}`} />
+							placeholder="https://…"
+							aria-label={`Sumber ${i + 1}`}
+						/>
 						{#if sumber.length > 1}
-							<button type="button" class="del" onclick={() => hapusSumber(i)} aria-label="Hapus"
+							<button type="button" class="del" onclick={() => hapusSumber(i)} aria-label={`Hapus sumber ${i + 1}`}
 								>×</button
 							>
 						{/if}
@@ -192,17 +285,27 @@
 				{/each}
 				<button type="button" class="addsrc" onclick={tambahSumber}>+ Tambah sumber lain</button>
 				<p class="helper">
-					Sertakan lebih dari satu kalau ada — makin banyak sumber, makin sulit dibantah.
-					Setiap tautan diarsipkan otomatis.
+					Sertakan lebih dari satu kalau ada — makin banyak sumber, makin sulit dibantah. Setiap
+					tautan diarsipkan otomatis.
 				</p>
 			</div>
 
-			<div class="fgroup">
-				<label class="label" for="submitter">Nama kamu (opsional)</label>
-				<input class="input" id="submitter" name="submitter" value={values.submitter ?? ''} />
-			</div>
+			<details class="optional">
+				<summary>Nama kamu (opsional)</summary>
+				<div class="fgroup">
+					<label class="label" for="submitter">Akan ditampilkan sebagai pengirim</label>
+					<input class="input" id="submitter" name="submitter" value={values.submitter ?? ''} />
+				</div>
+			</details>
 
-			<button class="btn" type="submit" disabled={mengirim}>{mengirim ? "Menerbitkan..." : "Terbitkan"}</button>
+			<div class="submitrow">
+				<button class="btn btn-lg" type="submit" disabled={mengirim}>
+					{mengirim ? 'Menerbitkan…' : 'Terbitkan sekarang'}
+				</button>
+				<p class="tiny muted">
+					Dengan menerbitkan, kamu menyatakan kutipan ini sesuai teks sumber dan dapat diperiksa.
+				</p>
+			</div>
 		</form>
 	{/if}
 </section>
@@ -226,17 +329,62 @@
 	legend {
 		padding: 0;
 	}
+	.req {
+		font-size: 10.5px;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--danger);
+		margin-left: 4px;
+		vertical-align: 1px;
+	}
 	.moderow {
 		display: flex;
 		gap: 8px;
-		margin-bottom: 14px;
+		margin-bottom: 12px;
 		flex-wrap: wrap;
 	}
-	.moderow .chip {
-		padding: 9px 16px;
+	.seg {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		padding: 8px 15px;
+		font-size: 13.5px;
+		font-weight: 550;
+		color: var(--text-2);
+		background: var(--surface);
+		border: 1px solid var(--line-strong);
+		border-radius: var(--radius);
+		cursor: pointer;
+	}
+	.seg input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+	.seg:focus-within {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.seg.aktif {
+		color: var(--accent);
+		background: var(--accent-soft);
+		border-color: var(--accent-line);
+		font-weight: 620;
 	}
 	.searchwrap {
 		position: relative;
+	}
+	.dipilih {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		flex-wrap: wrap;
+		color: var(--text);
+	}
+	.check {
+		color: var(--ok);
+		font-weight: 700;
 	}
 	.hasil {
 		list-style: none;
@@ -244,8 +392,9 @@
 		padding: 4px;
 		border: 1px solid var(--line);
 		border-radius: var(--radius);
-		background: var(--n-25);
-		max-height: 260px;
+		background: var(--surface);
+		box-shadow: var(--shadow-card);
+		max-height: 280px;
 		overflow-y: auto;
 	}
 	.hasil button {
@@ -256,10 +405,11 @@
 		text-align: left;
 		padding: 9px 10px;
 		border: none;
-		border-radius: 6px;
+		border-radius: 4px;
 		background: none;
 		cursor: pointer;
 		font: inherit;
+		color: var(--text);
 	}
 	.hasil button:hover {
 		background: var(--n-50);
@@ -267,9 +417,6 @@
 	.hnama {
 		font-size: 14px;
 		font-weight: 600;
-	}
-	.dipilih {
-		color: var(--text);
 	}
 	.two {
 		display: grid;
@@ -288,21 +435,25 @@
 	}
 	.del {
 		flex: 0 0 auto;
-		width: 36px;
-		height: 36px;
+		width: 40px;
+		height: 40px;
 		border: 1px solid var(--line);
 		border-radius: var(--radius);
-		background: var(--n-25);
-		color: var(--muted);
+		background: var(--surface);
+		color: var(--text-2);
 		font-size: 18px;
 		line-height: 1;
 		cursor: pointer;
+	}
+	.del:hover {
+		color: var(--danger);
+		border-color: var(--danger-line);
 	}
 	.addsrc {
 		border: none;
 		background: none;
 		padding: 2px 0;
-		color: var(--text);
+		color: var(--accent);
 		font: inherit;
 		font-size: 13px;
 		font-weight: 600;
@@ -310,9 +461,29 @@
 		text-decoration: underline;
 		text-underline-offset: 3px;
 	}
-	.form .btn {
+	.optional {
+		border-top: 1px solid var(--line);
+		padding-top: 14px;
+	}
+	.optional summary {
+		font-size: 13px;
+		font-weight: 580;
+		color: var(--text-2);
+		cursor: pointer;
+		margin-bottom: 10px;
+	}
+	.submitrow {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.submitrow .btn {
 		width: 100%;
-		margin-top: 4px;
+	}
+	.submitrow p {
+		text-align: center;
+		max-width: 52ch;
+		margin: 0 auto;
 	}
 	.btns {
 		display: flex;
@@ -320,7 +491,7 @@
 		margin-top: 12px;
 		flex-wrap: wrap;
 	}
-	.ok h3 {
+	.done h3 {
 		margin-bottom: 6px;
 	}
 	.notice ul {
@@ -331,7 +502,7 @@
 		.two {
 			grid-template-columns: 1fr;
 		}
-		.moderow .chip {
+		.seg {
 			flex: 1 1 auto;
 			justify-content: center;
 		}

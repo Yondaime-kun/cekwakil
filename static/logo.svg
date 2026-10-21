@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="CekWakil">
+	<title>CekWakil</title>
+
+	<!-- Logo CekWakil: bulatan penanda (bukti/cek) + garis-garis teks (pernyataan).
+	     Warna mengikuti token aksen situs (#1f5f4e). -->
+
+	<!-- Versi penuh 120×120 untuk avatar repo / App Store / og:image -->
+	<rect width="120" height="120" rx="26" fill="#1f5f4e" />
+	<circle cx="41" cy="60" r="12" fill="#ffffff" />
+	<path
+		d="M64 47h28M64 60h28M64 73h18"
+		stroke="#ffffff"
+		stroke-width="7.5"
+		stroke-linecap="round"
+		opacity="0.9"
+	/>
+</svg>

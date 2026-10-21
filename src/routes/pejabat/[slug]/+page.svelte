@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { fmtDate, fmtRp } from '#lib/utils';
+	import { fmtRp } from '#lib/utils';
+	import EntryCard from '#lib/components/EntryCard.svelte';
+	import ShareButton from '#lib/components/ShareButton.svelte';
 
 	let { data } = $props();
 	const person = $derived(data.person as Record<string, unknown>);
@@ -7,294 +9,473 @@
 	const kasus = $derived(data.kasus as Array<Record<string, unknown>>);
 	const harta = $derived((data.harta as Array<Record<string, unknown>>) ?? []);
 	const rekam = $derived((data.rekam as Array<Record<string, unknown>>) ?? []);
-	const jumlahHarta = $derived(data.jumlahHarta as number);
+
 	const totalNominal = $derived(kasus.reduce((acc, k) => acc + (Number(k.nominal_rp) || 0), 0));
+
+	// Kolom grafik LHKPN: urut tahun naik supaya batang tumbuh ke kanan.
+	const hartaNaik = $derived([...harta].sort((a, b) => Number(a.tahun) - Number(b.tahun)));
+	const maxHarta = $derived(Math.max(1, ...hartaNaik.map((h) => Number(h.total_harta) || 0)));
+	const hartaTerakhir = $derived(hartaNaik.length ? hartaNaik[hartaNaik.length - 1] : null);
+
+	function delta(i: number): number | null {
+		if (i === 0) return null;
+		const prev = Number(hartaNaik[i - 1].total_harta) || 0;
+		const cur = Number(hartaNaik[i].total_harta) || 0;
+		if (!prev || !cur) return null;
+		return cur - prev;
+	}
+
+	// Bagian yang benar-benar ada isinya, dinomori berurutan untuk rail.
+	const bagian = $derived(
+		[
+			{ id: 'kasus', label: 'Kasus korupsi', ada: kasus.length > 0, n: kasus.length },
+			{ id: 'harta', label: 'Riwayat LHKPN', ada: harta.length > 0, n: harta.length },
+			{ id: 'rekam', label: 'Rekam jejak', ada: rekam.length > 0, n: rekam.length },
+			{ id: 'pernyataan', label: 'Kutipan terarsip', ada: pernyataan.length > 0, n: pernyataan.length }
+		]
+			.filter((b) => b.ada)
+			.map((b, i) => ({ ...b, no: String(i + 1).padStart(2, '0') }))
+	);
+
+	const inisial = $derived(
+		String(person.nama ?? '')
+			.replace(/[^A-Za-z\s]/g, '')
+			.trim()
+			.split(/\s+/)
+			.filter(Boolean)
+			.slice(0, 2)
+			.map((w) => w[0]?.toUpperCase())
+			.join('')
+	);
 </script>
 
 <svelte:head>
 	<title>{person.nama} - CekWakil</title>
 	<meta
 		name="description"
-		content="Arsip pernyataan {person.nama}, {person.jabatan}{person.partai ? ` ${person.partai}` : ''}."
+		content="Arsip kutipan {person.nama}, {person.jabatan}{person.partai ? ` (${person.partai})` : ''} — dengan tanggal, konteks, dan tautan sumber."
 	/>
 </svelte:head>
 
 <section class="container section">
-	<header class="profile-head">
-		<div class="profile-main">
-			<h1>{person.nama}</h1>
-			<p class="role">{person.jabatan}</p>
-			<ul class="facts">
-				{#if person.partai}
-					<li>
-						<span class="fact-label">Partai</span>
-						<span class="fact-value">{person.partai}</span>
-					</li>
-				{/if}
-				{#if person.dapil}
-					<li>
-						<span class="fact-label">Dapil</span>
-						<span class="fact-value">{person.dapil}</span>
-					</li>
-				{/if}
-				{#if person.komisi}
-					<li>
-						<span class="fact-label">Komisi</span>
-						<span class="fact-value">{person.komisi}</span>
-					</li>
-				{/if}
-				{#if person.suara}
-					<li>
-						<span class="fact-label">Perolehan suara</span>
-						<span class="fact-value num">{Number(person.suara).toLocaleString('id-ID')}</span>
-					</li>
-				{/if}
-				<li>
-					<span class="fact-label">Instansi</span>
-					<span class="fact-value">{person.instansi}</span>
-				</li>
-				{#if harta.length > 0}
-					<li>
-						<span class="fact-label">Harta (LHKPN terakhir)</span>
-						<span class="fact-value num">{harta[0].total_harta ? fmtRp(Number(harta[0].total_harta)) : 'belum dilaporkan'}</span>
-						<a class="tiny" href={`/pejabat/${person.slug}#harta`}>Riwayat LHKPN ({jumlahHarta})</a>
-					</li>
-				{:else}
-					<li>
-						<span class="fact-label">Harta (LHKPN)</span>
-						<span class="fact-value muted">belum ada entri</span>
-						<a class="tiny" href="/harta">Tambahkan</a>
-					</li>
-				{/if}
-			</ul>
-			{#if person.bio}
-				<p class="bio">{person.bio}</p>
-				{#if person.sumber_bio}
-					<a class="tiny" href={String(person.sumber_bio)} target="_blank" rel="noopener noreferrer">Sumber bio</a>
-				{/if}
-			{/if}
-			<p class="editlink tiny">
-				<a href={`/pejabat/${person.slug}/edit`}>Sunting profil ini</a>
-				<span class="muted"> · </span>
-				<a href="/rekam">Tambah rekam jejak</a>
-				<span class="muted"> · </span>
-				<a href="/harta">Tambah LHKPN</a>
-			</p>
-			{#if person.wikipedia_url}
-				<p class="small">
-					<a href={String(person.wikipedia_url)} target="_blank" rel="noopener noreferrer"
-						>Profil Wikipedia</a
+	<nav class="crumbs tiny" aria-label="Breadcrumb">
+		<a href="/pejabat">Pejabat</a>
+		<span aria-hidden="true">/</span>
+		{#if person.partai}
+			<a href={`/pejabat?partai=${encodeURIComponent(String(person.partai))}`}>{person.partai}</a>
+			<span aria-hidden="true">/</span>
+		{/if}
+		<span aria-current="page">{person.nama}</span>
+	</nav>
+
+	<!-- Masthead: nama besar, metadata satu baris, facts sebagai tabel ber-garis -->
+	<header class="masthead">
+		<p class="eyebrow">Profil pejabat</p>
+		<div class="mast-top">
+			<div class="mast-id">
+				<div class="avatar" aria-hidden="true">{inisial}</div>
+				<div class="minw">
+					<h1>{person.nama}</h1>
+					<p class="meta">
+						<span>{person.jabatan}</span>
+						{#if person.partai}<span class="sep">·</span><span>{person.partai}</span>{/if}
+						{#if person.instansi && person.instansi !== person.jabatan}
+							<span class="sep">·</span><span>{person.instansi}</span>
+						{/if}
+					</p>
+				</div>
+			</div>
+			<div class="mast-actions">
+				<ShareButton />
+				<a class="btn btn-secondary btn-sm" href={`/pejabat/${person.slug}/edit`}>Sunting profil</a>
+				{#if person.wikipedia_url}
+					<a
+						class="btn btn-secondary btn-sm"
+						href={String(person.wikipedia_url)}
+						target="_blank"
+						rel="noopener noreferrer">Wikipedia ↗</a
 					>
+				{/if}
+			</div>
+		</div>
+
+		<ul class="facts">
+			{#if person.partai}
+				<li><span class="f-label">Partai</span><span class="f-value">{person.partai}</span></li>
+			{/if}
+			{#if person.dapil}
+				<li><span class="f-label">Dapil</span><span class="f-value">{person.dapil}</span></li>
+			{/if}
+			{#if person.komisi}
+				<li><span class="f-label">Komisi</span><span class="f-value">{person.komisi}</span></li>
+			{/if}
+			{#if person.suara}
+				<li>
+					<span class="f-label">Perolehan suara</span>
+					<span class="f-value num">{Number(person.suara).toLocaleString('id-ID')}</span>
+				</li>
+			{/if}
+		</ul>
+
+		{#if person.bio}
+			<div class="bio md">{@html data.bioHtml}</div>
+			{#if person.sumber_bio}
+				<p class="tiny bio-src">
+					<a href={String(person.sumber_bio)} target="_blank" rel="noopener noreferrer">Sumber bio ↗</a>
 				</p>
 			{/if}
-		</div>
-		<div class="scorecard">
-			<div class="score">
-				<span class="score-num">{pernyataan.length}</span>
-				<span class="score-lbl">Pernyataan terarsip</span>
-			</div>
-			{#if kasus.length > 0}
-				<div class="score score-danger">
-					<span class="score-num">{kasus.length}</span>
-					<span class="score-lbl">Kasus korupsi</span>
-				</div>
-			{/if}
-		</div>
+		{/if}
 	</header>
 
-	{#if kasus.length > 0}
-		<section class="kasus-block">
-			<div class="block-head">
-				<h2>Kasus korupsi</h2>
-				{#if totalNominal > 0}
-					<span class="total">Total tercatat {fmtRp(totalNominal)}</span>
-				{/if}
-			</div>
-			<ul class="kasus-list">
-				{#each kasus as k (k.id)}
-					<li class="kasus">
-						<div class="kasus-top">
-							<h3 class="kasus-name">{k.nama_kasus}</h3>
-							{#if k.nominal_rp}
-								<span class="kasus-nominal num">{fmtRp(Number(k.nominal_rp))}</span>
+	<div class="body">
+		<div class="content">
+			{#if kasus.length > 0}
+				<section id="kasus" class="blk">
+					<div class="blk-head">
+						<h2>Kasus korupsi</h2>
+						{#if totalNominal > 0}
+							<span class="blk-meta">Total tercatat {fmtRp(totalNominal)}</span>
+						{/if}
+					</div>
+					<div class="kasus-card">
+						<ul class="kasus-list">
+							{#each kasus as k (k.id)}
+								<li class="kasus">
+									<div class="kasus-top">
+										<h3>{k.nama_kasus}</h3>
+										{#if k.nominal_rp}
+											<span class="kasus-nominal num">{fmtRp(Number(k.nominal_rp))}</span>
+										{/if}
+									</div>
+									<div class="kasus-meta">
+										{#if k.peran}<span class="status status-error">{k.peran}</span>{/if}
+										{#if k.status}<span class="status">{k.status}</span>{/if}
+										{#if k.tahun}<span class="tiny muted num">{k.tahun}</span>{/if}
+										<a
+											class="tiny kasus-src"
+											href={String(k.sumber_url)}
+											target="_blank"
+											rel="noopener noreferrer">Sumber ↗</a
+										>
+									</div>
+								</li>
+							{/each}
+						</ul>
+						<p class="legal">
+							Status hukum bisa berubah dan peran bisa berbeda-beda (tersangka ≠ terpidana). Selalu
+							baca sumber terbaru sebelum menyimpulkan.
+						</p>
+					</div>
+				</section>
+			{/if}
+
+			{#if harta.length > 0}
+				<section id="harta" class="blk">
+					<div class="blk-head">
+						<h2>Riwayat LHKPN</h2>
+						<a class="tiny" href="/harta">Tambah laporan</a>
+					</div>
+					<div class="chart-card">
+						<div class="chart-top">
+							<p class="chart-cap">Total harta dilaporkan</p>
+							{#if hartaTerakhir}
+								<p class="chart-last">
+									Terakhir <strong class="num">{hartaTerakhir.total_harta ? fmtRp(Number(hartaTerakhir.total_harta)) : '—'}</strong>
+								</p>
 							{/if}
 						</div>
-						<p class="kasus-meta tiny">
-							{#if k.peran}<span class="status status-error">{k.peran}</span>{/if}
-							{#if k.status}<span class="status">{k.status}</span>{/if}
-							{#if k.tahun}<span class="muted">{k.tahun}</span>{/if}
+						<ul class="cols" aria-label="Grafik total harta per tahun">
+							{#each hartaNaik as h, i (h.tahun)}
+								{@const v = Number(h.total_harta) || 0}
+								{@const hgt = Math.max(6, Math.round((v / maxHarta) * 100))}
+								{@const d = delta(i)}
+								<li class="col" class:now={i === hartaNaik.length - 1}>
+									<span class="col-val num">{v ? fmtRp(v) : '—'}</span>
+									<span class="col-bar" style={`height:${hgt}%`}></span>
+									<span class="col-year num">{h.tahun}</span>
+									<span class="col-delta num" class:up={d !== null && d > 0} class:down={d !== null && d < 0}>
+										{d === null ? 'tahun awal' : `${d > 0 ? '+' : '−'} ${fmtRp(Math.abs(d))}`}
+									</span>
+								</li>
+							{/each}
+						</ul>
+						<p class="legal">
+							Angka dari LHKPN yang dilaporkan publik. Periksa dokumen aslinya sebelum mengutip:
+							{#each harta as h, i (h.tahun)}{#if h.lhkpn_url}{#if i > 0}<span class="muted"> · </span>{/if}<a
+										href={String(h.lhkpn_url)}
+										target="_blank"
+										rel="noopener noreferrer">{h.tahun}</a
+									>{/if}{/each}.
 						</p>
-						<a class="tiny" href={String(k.sumber_url)} target="_blank" rel="noopener noreferrer"
-							>Sumber berita</a
-						>
-					</li>
-				{/each}
-			</ul>
-			<p class="disclaimer tiny muted">
-				Status hukum bisa berubah. Selalu cek sumber terbaru sebelum menyimpulkan.
-			</p>
-		</section>
-	{/if}
+					</div>
+				</section>
+			{/if}
 
-	{#if harta.length > 0}
-		<section class="harta-block" id="harta">
-			<div class="block-head">
-				<h2>Riwayat LHKPN</h2>
-				<a class="tiny" href="/harta">Tambah laporan</a>
-			</div>
-			<table class="hartatable">
-				<thead>
-					<tr><th>Tahun</th><th>Total harta</th><th></th></tr>
-				</thead>
-				<tbody>
-					{#each harta as h (h.tahun)}
-						<tr>
-							<td class="num">{h.tahun}</td>
-							<td class="num">{h.total_harta ? fmtRp(Number(h.total_harta)) : '—'}</td>
-							<td>
-								{#if h.lhkpn_url}
-									<a class="tiny" href={String(h.lhkpn_url)} target="_blank" rel="noopener noreferrer">dokumen</a>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-			<p class="disclaimer tiny muted">
-				Angka dari LHKPN yang dilaporkan publik. Periksa dokumen asli sebelum mengutip.
-			</p>
-		</section>
-	{/if}
+			{#if rekam.length > 0}
+				<section id="rekam" class="blk">
+					<div class="blk-head">
+						<h2>Rekam jejak</h2>
+						<a class="tiny" href="/rekam">Tambah</a>
+					</div>
+					<ol class="timeline">
+						{#each rekam as r (r.id)}
+							<li>
+								<span class="tl-year num">{r.tahun ?? '—'}</span>
+								<div class="tl-body">
+									<h3>{r.judul}</h3>
+									{#if r.uraian}<p class="small muted">{r.uraian}</p>{/if}
+									<a
+										class="tiny"
+										href={String(r.sumber_url)}
+										target="_blank"
+										rel="noopener noreferrer">Sumber berita ↗</a
+									>
+								</div>
+							</li>
+						{/each}
+					</ol>
+				</section>
+			{/if}
 
-	{#if rekam.length > 0}
-		<section class="rekam-block">
-			<div class="block-head">
-				<h2>Rekam jejak</h2>
-			</div>
-			<ul class="rekam-list">
-				{#each rekam as r (r.id)}
-					<li class="rekam">
-						<h3 class="rekam-name">
-							{r.judul}{#if r.tahun}<span class="muted"> · {r.tahun}</span>{/if}
-						</h3>
-						{#if r.uraian}<p class="small">{r.uraian}</p>{/if}
-						<a class="tiny" href={String(r.sumber_url)} target="_blank" rel="noopener noreferrer">Sumber berita</a>
-					</li>
-				{/each}
-			</ul>
-		</section>
-	{/if}
+			<section id="pernyataan" class="blk">
+				<div class="blk-head">
+					<h2>Kutipan terarsip</h2>
+					<span class="blk-meta">{pernyataan.length} entri</span>
+				</div>
 
-	<section class="pernyataan-block">
-		<div class="block-head">
-			<h2>Pernyataan terarsip</h2>
+				{#if pernyataan.length === 0}
+					<div class="empty-inline">
+						<p class="small">
+							<strong>Belum ada kutipan terarsip untuk {person.nama}.</strong>
+							Tahu ada yang terlewat? Laporkan dengan kutipan dan tautan beritanya.
+						</p>
+						<a href="/submit" class="btn btn-sm">Lapor kutipan</a>
+					</div>
+				{:else}
+					<ul class="quotes">
+						{#each pernyataan as p, i (p.id)}
+							<li>
+								<EntryCard
+									e={p}
+									sumber={data.sumberMap[p.id as number] ?? []}
+									nomor={i + 1}
+								/>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
 		</div>
 
-		{#if pernyataan.length === 0}
-			<div class="empty-inline">
-				<p class="small">
-					<strong>Belum ada pernyataan terarsip untuk {person.nama}.</strong>
-					Tahu ada yang terlewat? <a href="/submit">Laporkan di sini</a> dengan kutipan dan tautan
-					beritanya.
-				</p>
+		<!-- Rail "Sekilas" + jump list, menggantikan TOC kiri yang ruangnya terbuang -->
+		<aside class="rail" aria-label="Sekilas profil">
+			<div class="rail-card">
+				<div class="rail-head"><h2>Sekilas</h2><span class="rule"></span></div>
+				<dl class="rail-stats">
+					<div>
+						<dt>Kutipan terarsip</dt>
+						<dd class="num">{pernyataan.length}</dd>
+					</div>
+					<div>
+						<dt>Kasus tercatat</dt>
+						<dd class="num" class:zero={kasus.length === 0}>{kasus.length}</dd>
+					</div>
+					<div>
+						<dt>Harta terakhir</dt>
+						<dd class="num">
+							{hartaTerakhir?.total_harta ? fmtRp(Number(hartaTerakhir.total_harta)) : '—'}
+						</dd>
+					</div>
+				</dl>
 			</div>
-		{:else}
-			<ul class="entries">
-				{#each pernyataan as p (p.id)}
-					<li class="entry">
-						<div class="entry-head">
-							<span class="chip">{p.kategori}</span>
-							<span class="tiny muted num">{fmtDate(String(p.tanggal))}</span>
-						</div>
-						<blockquote>{p.isi}</blockquote>
-						{#if p.konteks}<p class="small muted konteks">{p.konteks}</p>{/if}
-						<p class="tiny srcrow">
-							<a href={String(p.sumber_url)} target="_blank" rel="noopener noreferrer">Sumber berita</a>
-							{#if p.arsip_url}
-								<span class="muted"> / </span>
-								<a href={String(p.arsip_url)} target="_blank" rel="noopener noreferrer">Arsip</a>
-							{/if}
-						</p>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+
+			<div class="rail-card">
+				<p class="rail-label">Lompat ke bagian</p>
+				<nav class="rail-nav">
+					{#each bagian as b (b.id)}
+						<a href={`#${b.id}`}><span class="no num">{b.no}</span>{b.label}</a>
+					{/each}
+				</nav>
+				<div class="rail-add">
+					<a href={`/submit?pejabat=${person.slug}`}>+ Kutipan untuk dia</a>
+					<a href={`/harta?pejabat=${person.slug}`}>+ Data LHKPN</a>
+					<a href={`/rekam?pejabat=${person.slug}`}>+ Rekam jejak</a>
+				</div>
+			</div>
+
+			<p class="rail-legal">
+				Status hukum dapat berubah dan peran berbeda-beda (tersangka ≠ terpidana). Selalu baca sumber
+				terbaru sebelum menyimpulkan.
+			</p>
+		</aside>
+	</div>
 </section>
 
 <style>
-	.profile-head {
+	.crumbs {
 		display: flex;
-		justify-content: space-between;
-		gap: 32px;
+		gap: 6px;
 		flex-wrap: wrap;
-		padding-bottom: 28px;
+		margin-bottom: 18px;
+		color: var(--text-3);
+	}
+	.crumbs a {
+		color: var(--text-2);
+		text-decoration: none;
+	}
+	.crumbs a:hover {
+		text-decoration: underline;
+	}
+
+	/* --- masthead --- */
+	.masthead {
+		padding-bottom: 24px;
 		border-bottom: 1px solid var(--line);
 	}
-	.profile-main {
-		flex: 1 1 380px;
+	.eyebrow {
+		margin: 0 0 8px;
+		font-size: 11.5px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--accent);
+	}
+	.mast-top {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 32px;
+	}
+	.mast-id {
+		display: flex;
+		align-items: flex-start;
+		gap: 16px;
 		min-width: 0;
 	}
-	.role {
-		margin-top: 6px;
-		font-size: 16px;
+	.minw {
+		min-width: 0;
+	}
+	.avatar {
+		flex: 0 0 auto;
+		width: 52px;
+		height: 52px;
+		display: grid;
+		place-items: center;
+		margin-top: 10px;
+		border-radius: 50%;
+		font-size: 18px;
+		font-weight: 650;
+		color: var(--accent);
+		background: var(--accent-soft);
+		border: 1px solid var(--accent-line);
+	}
+	h1 {
+		max-width: 760px;
+		font-size: clamp(34px, 4.6vw, 56px);
+		font-weight: 660;
+		line-height: 1.02;
+		letter-spacing: -0.04em;
+		text-wrap: balance;
+	}
+	.meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		margin: 12px 0 0;
+		font-size: 15px;
+		font-weight: 500;
 		color: var(--text-2);
 	}
+	.sep {
+		color: var(--n-300);
+	}
+	.mast-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		flex-shrink: 0;
+		padding-top: 6px;
+	}
+
+	/* facts: tabel ber-garis, bukan floating labels */
 	.facts {
 		list-style: none;
-		margin: 18px 0 12px;
+		margin: 24px 0 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 12px 24px;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		border-top: 1px solid var(--line);
+		border-bottom: 1px solid var(--line);
 	}
 	.facts li {
 		display: flex;
 		flex-direction: column;
-		gap: 1px;
+		justify-content: center;
+		min-height: 72px;
+		padding: 12px 20px;
+		border-left: 1px solid var(--line);
+		min-width: 0;
 	}
-	.fact-label {
-		font-size: 12px;
+	.facts li:first-child {
+		border-left: none;
+		padding-left: 0;
+	}
+	.f-label {
+		font-size: 11.5px;
 		color: var(--text-3);
 	}
-	.fact-value {
-		font-size: 14.5px;
-		font-weight: 560;
+	.f-value {
+		font-size: 15px;
+		font-weight: 600;
+		line-height: 1.35;
+		overflow-wrap: anywhere;
 	}
-	.scorecard {
-		display: flex;
-		gap: 28px;
-		align-items: flex-start;
-	}
-	.score {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-	.score-num {
-		font-size: 34px;
-		font-weight: 660;
-		line-height: 1.1;
-		font-variant-numeric: tabular-nums;
-		letter-spacing: -0.02em;
-		color: var(--accent);
-	}
-	.score-lbl {
-		font-size: 12.5px;
+	.bio {
+		margin: 16px 0 0;
+		max-width: 70ch;
+		font-size: 15px;
+		line-height: 1.65;
 		color: var(--text-2);
-		white-space: nowrap;
 	}
-	.score-danger .score-num {
-		color: var(--danger);
+	.md :global(p) {
+		margin: 0 0 8px;
 	}
-	.kasus-block {
-		margin-top: 32px;
-		padding: 20px;
-		background: var(--danger-soft);
-		border: 1px solid var(--danger-line);
-		border-radius: var(--radius-lg);
+	.md :global(p:last-child) {
+		margin-bottom: 0;
 	}
-	.block-head {
+	.md :global(ul),
+	.md :global(ol) {
+		margin: 0 0 8px;
+		padding-left: 20px;
+	}
+	.md :global(code) {
+		font-family: ui-monospace, monospace;
+		font-size: 0.9em;
+		padding: 1px 4px;
+		background: var(--n-100);
+		border-radius: 3px;
+	}
+	.bio-src {
+		margin: 4px 0 0;
+	}
+
+	/* --- layout: konten + rail kanan --- */
+	.body {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 260px;
+		gap: 40px;
+		align-items: start;
+		margin-top: 30px;
+	}
+	.content {
+		min-width: 0;
+	}
+	.blk {
+		margin-bottom: 36px;
+		scroll-margin-top: calc(var(--header-h) + 16px);
+	}
+	.blk-head {
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
@@ -302,10 +483,20 @@
 		flex-wrap: wrap;
 		margin-bottom: 14px;
 	}
-	.total {
-		font-size: 13px;
-		font-weight: 580;
-		color: var(--danger);
+	.blk-head h2 {
+		font-size: 20px;
+	}
+	.blk-meta {
+		font-size: 12.5px;
+		color: var(--text-2);
+	}
+
+	/* --- kasus --- */
+	.kasus-card {
+		padding: 16px 18px;
+		background: var(--danger-soft);
+		border: 1px solid var(--danger-line);
+		border-radius: var(--radius-lg);
 	}
 	.kasus-list {
 		list-style: none;
@@ -313,12 +504,12 @@
 		padding: 0;
 	}
 	.kasus {
-		padding: 14px 0;
+		padding: 12px 0;
 		border-top: 1px solid var(--danger-line);
 	}
 	.kasus:first-child {
-		border-top: none;
 		padding-top: 0;
+		border-top: none;
 	}
 	.kasus-top {
 		display: flex;
@@ -327,55 +518,187 @@
 		flex-wrap: wrap;
 		align-items: baseline;
 	}
-	.kasus-name {
+	.kasus h3 {
 		font-size: 15.5px;
 		font-weight: 620;
 	}
 	.kasus-nominal {
 		font-size: 15px;
-		font-weight: 660;
+		font-weight: 680;
 		color: var(--danger);
 		white-space: nowrap;
 	}
 	.kasus-meta {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 8px;
 		flex-wrap: wrap;
-		margin: 6px 0;
+		margin-top: 6px;
 	}
-	.disclaimer {
-		margin-top: 12px;
-		padding-top: 12px;
-		border-top: 1px solid var(--danger-line);
+	.kasus-src {
+		white-space: nowrap;
 	}
-	.hartatable {
-		width: 100%;
-		border-collapse: collapse;
-		background: var(--n-0);
+
+	/* --- LHKPN: grafik kolom --- */
+	.chart-card {
+		padding: 18px 18px 14px;
+		background: var(--surface);
 		border: 1px solid var(--line);
 		border-radius: var(--radius-lg);
-		overflow: hidden;
-		font-size: 14.5px;
 	}
-	.hartatable th {
-		text-align: left;
-		padding: 10px 14px;
+	.chart-top {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 16px;
+		margin-bottom: 16px;
+		flex-wrap: wrap;
+	}
+	.chart-cap {
+		margin: 0;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--text-2);
+	}
+	.chart-last {
+		margin: 0;
+		font-size: 12.5px;
+		color: var(--text-2);
+	}
+	.chart-last strong {
+		color: var(--text);
+	}
+	.cols {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		/* Kolom mengikuti lebar tetap supaya 1 tahun tidak jadi batang raksasa,
+		   dan 10 tahun tetap rapi (scroll horizontal kalau lebih). */
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: minmax(0, 96px);
+		justify-content: start;
+		gap: 16px;
+		height: 210px;
+		overflow-x: auto;
+		border-bottom: 1px solid var(--line);
+		scrollbar-width: thin;
+	}
+	.col {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+	.col-val {
 		font-size: 12px;
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: var(--text-3);
-		border-bottom: 1px solid var(--line);
+		color: var(--text-2);
+		white-space: nowrap;
 	}
-	.hartatable td {
-		padding: 10px 14px;
-		border-bottom: 1px solid var(--line);
-	}
-	.hartatable tr:last-child td {
+	.col-bar {
+		width: 100%;
+		max-width: 64px;
+		min-height: 6px;
+		background: var(--accent-soft);
+		border: 1px solid var(--accent-line);
 		border-bottom: none;
+		border-radius: 3px 3px 0 0;
 	}
-	.rekam-list {
+	.col.now .col-bar {
+		background: var(--accent);
+		border-color: var(--accent);
+	}
+	.col-year {
+		margin-top: 8px;
+		font-size: 12.5px;
+		font-weight: 600;
+	}
+	.col-delta {
+		font-size: 11px;
+		color: var(--text-3);
+		white-space: nowrap;
+	}
+	.col-delta.up {
+		color: var(--danger);
+	}
+	.col-delta.down {
+		color: var(--ok);
+	}
+	.legal {
+		margin: 12px 0 0;
+		padding-top: 10px;
+		border-top: 1px dashed var(--line);
+		font-size: 12.5px;
+		line-height: 1.45;
+		color: var(--text-2);
+	}
+
+	/* --- rekam jejak: timeline --- */
+	.timeline {
+		list-style: none;
+		margin: 0;
+		padding: 0 0 0 4px;
+		display: flex;
+		flex-direction: column;
+	}
+	.timeline li {
+		position: relative;
+		display: grid;
+		grid-template-columns: 56px minmax(0, 1fr);
+		gap: 16px;
+		padding: 0 0 22px 0;
+	}
+	.timeline li::before {
+		content: '';
+		position: absolute;
+		left: 68px;
+		top: 6px;
+		bottom: -6px;
+		width: 1px;
+		background: var(--line);
+	}
+	.timeline li:last-child::before {
+		display: none;
+	}
+	.tl-year {
+		font-size: 12.5px;
+		font-weight: 600;
+		color: var(--text-3);
+		padding-top: 2px;
+	}
+	.tl-body {
+		position: relative;
+		padding-left: 18px;
+		min-width: 0;
+	}
+	.tl-body::before {
+		content: '';
+		position: absolute;
+		left: -3px;
+		top: 7px;
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--surface);
+		border: 1.5px solid var(--n-300);
+	}
+	.timeline li:first-child .tl-body::before {
+		border-color: var(--accent);
+		background: var(--accent);
+	}
+	.tl-body h3 {
+		font-size: 15px;
+		font-weight: 620;
+		margin-bottom: 2px;
+	}
+	.tl-body p {
+		margin-bottom: 4px;
+	}
+
+	.quotes {
 		list-style: none;
 		margin: 0;
 		padding: 0;
@@ -383,91 +706,206 @@
 		flex-direction: column;
 		gap: 10px;
 	}
-	.rekam {
-		padding: 14px 16px;
-		background: var(--n-0);
-		border: 1px solid var(--line);
+
+	.empty-inline {
+		padding: 16px 18px;
+		background: var(--surface);
+		border: 1px dashed var(--line-strong);
 		border-radius: var(--radius-lg);
 	}
-	.rekam-name {
-		font-size: 15px;
-		font-weight: 620;
-		margin-bottom: 6px;
+	.empty-inline p {
+		margin-bottom: 12px;
 	}
-	.bio {
-		margin-top: 14px;
-		font-size: 15px;
-		line-height: 1.65;
-		color: var(--text-2);
-		max-width: 70ch;
-	}
-	.editlink {
-		margin-top: 12px;
-	}
-	.editlink a {
-		color: var(--muted);
-	}
-	.pernyataan-block {
-		margin-top: 32px;
-	}
-	.entries {
-		list-style: none;
-		margin: 0;
-		padding: 0;
+
+	/* --- rail --- */
+	.rail {
+		position: sticky;
+		top: calc(var(--header-h) + 20px);
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
 	}
-	.entry {
-		padding: 18px 20px;
-		background: var(--n-0);
+	.rail-card {
+		padding: 16px;
+		background: var(--surface);
 		border: 1px solid var(--line);
 		border-radius: var(--radius-lg);
 	}
-	.entry-head {
+	.rail-head {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
-		gap: 10px;
-		margin-bottom: 10px;
+		gap: 8px;
+		margin-bottom: 4px;
 	}
-	blockquote {
-		margin: 0 0 10px;
-		padding-left: 14px;
-		border-left: 2px solid var(--accent-line);
-		font-size: 16px;
-		line-height: 1.6;
+	.rail-head h2 {
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.07em;
+		text-transform: uppercase;
 	}
-	.konteks {
-		margin-bottom: 10px;
+	.rule {
+		flex: 1;
+		height: 1px;
+		background: var(--line);
 	}
-	.srcrow {
+	.rail-stats {
 		margin: 0;
 	}
-	.empty h3 {
-		margin-bottom: 8px;
+	.rail-stats > div {
+		padding: 10px 0;
+		border-bottom: 1px solid var(--line);
 	}
-	.empty-inline {
-		padding: 16px 18px;
-		background: var(--n-0);
-		border: 1px solid var(--line);
-		border-radius: var(--radius-lg);
+	.rail-stats > div:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+	.rail-stats dt {
+		font-size: 11.5px;
+		color: var(--text-3);
+	}
+	.rail-stats dd {
+		margin: 2px 0 0;
+		font-size: 20px;
+		font-weight: 660;
+		letter-spacing: -0.02em;
+	}
+	.rail-stats dd.zero {
+		color: var(--text-3);
+	}
+	.rail-label {
+		margin: 0 0 6px;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-3);
+	}
+	.rail-nav {
+		display: flex;
+		flex-direction: column;
+	}
+	.rail-nav a {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		padding: 8px 0;
+		border-bottom: 1px solid var(--line);
+		font-size: 13px;
+		color: var(--text-2);
+		text-decoration: none;
+	}
+	.rail-nav a:hover {
+		color: var(--accent);
+	}
+	.rail-nav .no {
+		font-size: 11px;
+		color: var(--text-3);
+	}
+	.rail-add {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin-top: 10px;
+		padding-top: 10px;
+		border-top: 1px solid var(--line);
+		font-size: 12.5px;
+	}
+	.rail-add a {
+		padding: 3px 0;
+	}
+	.rail-legal {
+		margin: 0;
+		padding: 10px 12px;
+		font-size: 11.5px;
+		line-height: 1.5;
+		color: var(--text-2);
+		border-left: 2px solid var(--line-strong);
+		background: var(--n-50);
+		border-radius: 0 var(--radius) var(--radius) 0;
+	}
+
+	@media (max-width: 900px) {
+		.body {
+			grid-template-columns: 1fr;
+			gap: 22px;
+		}
+		/* Rail naik ke atas sebagai strip horizontal ringkas. */
+		.rail {
+			position: static;
+			order: -1;
+		}
+		.rail-stats {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		.rail-stats > div {
+			padding: 0 12px;
+			border-bottom: none;
+			border-left: 1px solid var(--line);
+		}
+		.rail-stats > div:first-child {
+			padding-left: 0;
+			border-left: none;
+		}
+		.rail-stats dd {
+			font-size: 17px;
+		}
+		.rail-nav {
+			flex-direction: row;
+			flex-wrap: wrap;
+			gap: 6px;
+		}
+		.rail-nav a {
+			padding: 4px 10px;
+			border: 1px solid var(--line);
+			border-radius: var(--radius-pill);
+			font-size: 12.5px;
+		}
+		.rail-legal {
+			display: none;
+		}
 	}
 	@media (max-width: 720px) {
-		.profile-head {
-			gap: 20px;
+		.mast-top {
+			flex-direction: column;
+			gap: 14px;
 		}
-		.scorecard {
-			gap: 24px;
+		.avatar {
+			width: 42px;
+			height: 42px;
+			font-size: 15px;
+			margin-top: 6px;
 		}
-		.score-num {
-			font-size: 28px;
+		.facts {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
-		.kasus-block {
-			padding: 16px;
+		.facts li {
+			padding: 10px 14px;
+			min-height: 62px;
 		}
-		blockquote {
-			font-size: 15.5px;
+		.facts li:nth-child(odd) {
+			padding-left: 0;
+			border-left: none;
+		}
+		.facts li:nth-child(n + 3) {
+			border-top: 1px solid var(--line);
+		}
+		.cols {
+			height: 170px;
+			gap: 8px;
+		}
+		.col-val {
+			font-size: 10.5px;
+		}
+		.col-delta {
+			display: none;
+		}
+		.timeline li {
+			grid-template-columns: 42px minmax(0, 1fr);
+			gap: 10px;
+		}
+		.timeline li::before {
+			left: 48px;
 		}
 	}
 </style>

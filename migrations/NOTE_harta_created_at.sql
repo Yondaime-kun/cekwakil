@@ -1,0 +1,23 @@
+-- Catatan operasional (bukan DDL) — jangan dihapus.
+--
+-- harta_kekayaan.created_at TIDAK didefinisikan di file migrasi mana pun:
+-- 0007 membuat tabelnya tanpa kolom itu (komentarnya keliru menyebut "dari
+-- 0005"), dan 0010 hanya menambah jenis/status/submitter/reverted_at/
+-- revert_reason.
+--
+-- Di production kolomnya ADA (status 2026-10-21: CREATE TABLE ... created_at
+-- TEXT NOT NULL DEFAULT (datetime('now'))), jadi /harta aman di sana.
+-- Tapi database yang dibangun MURNI dari 0001-0013 (mis. dev lokal, atau
+-- deploy baru dari tombol "Deploy to Cloudflare") tidak punya kolom itu dan
+-- /harta akan 500 dengan "no such column: h.created_at".
+--
+-- Untuk deploy baru, jalankan DDL berikut SETELAH 0001-0003 (dan sebelum
+-- aplikasi melayani /harta). Di production yang sudah punya kolom, JANGAN
+-- dijalankan — akan error "duplicate column".
+--
+--   ALTER TABLE harta_kekayaan
+--     ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'));
+--
+-- TODO: jadikan bagian dari 0007 untuk instalasi baru (butuh hati-hati karena
+-- 0007 juga meng-ALTER tabel lain, sehingga file lamanya tidak bisa diedit
+-- begitu saja untuk database yang sudah berjalan).

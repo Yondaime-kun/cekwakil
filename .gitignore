@@ -22,3 +22,9 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .dev.vars
+
+# Superdesign temporary HTML
+.superdesign/tmp/
+
+# Superdesign (artefak tool desain, bukan bagian aplikasi)
+.superdesign/

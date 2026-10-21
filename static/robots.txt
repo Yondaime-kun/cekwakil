@@ -1,3 +1,8 @@
-# allow crawling everything by default
+# CekWakil — arsip pernyataan pejabat publik
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+# Domain kanonik. Halaman juga mengirim <link rel="canonical"> sendiri.
+Sitemap: https://cekwakil.bond/sitemap.xml

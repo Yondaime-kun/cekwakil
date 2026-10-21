@@ -16,12 +16,14 @@ export const load: PageServerLoad = async ({ url }) => {
 		)
 		.all();
 
-	const pejabat = await db.prepare(`SELECT id, nama, slug FROM pejabat ORDER BY nama`).all();
+	const pejabatRows = await db.prepare(`SELECT id, nama, slug FROM pejabat ORDER BY nama`).all();
+	const daftar = pejabatRows.results ?? [];
 
 	return {
 		list: list.results ?? [],
-		pejabat: pejabat.results ?? [],
-		slug
+		pejabat: daftar,
+		slug,
+		terpilih: slug ? (daftar.find((p) => (p as { slug: string }).slug === slug) ?? null) : null
 	};
 };
 

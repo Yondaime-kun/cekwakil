@@ -1,9 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<meta name="theme-color" content="#fbfbfa" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#101113" media="(prefers-color-scheme: dark)" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
+		<script>
+			// Terapkan tema SEBELUM render untuk menghindari kedipan (FOUC).
+			// Harus inline & sinkron — jangan dipindah ke bundle.
+			(function () {
+				try {
+					var t = localStorage.getItem('cekwakil-tema');
+					if (t === 'dark' || t === 'light') {
+						document.documentElement.setAttribute('data-theme', t);
+					}
+				} catch (e) {}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
