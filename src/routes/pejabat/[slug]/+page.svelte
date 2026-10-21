@@ -95,7 +95,6 @@
 
 	<!-- Masthead: nama besar, metadata satu baris, facts sebagai tabel ber-garis -->
 	<header class="masthead">
-		<p class="eyebrow">Profil pejabat</p>
 		<div class="mast-top">
 			<div class="mast-id">
 				<PejabatAvatar kelas="mast-avatar" nama={String(person.nama)} foto={person.foto_url ? String(person.foto_url) : null} />
@@ -443,14 +442,6 @@
 	.masthead {
 		padding-bottom: 24px;
 		border-bottom: 1px solid var(--line);
-	}
-	.eyebrow {
-		margin: 0 0 8px;
-		font-size: 11.5px;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--accent);
 	}
 	.mast-top {
 		display: flex;
