@@ -7,6 +7,7 @@
 		{ href: '/pejabat', label: 'Pejabat' },
 		{ href: '/blunder', label: 'Arsip' },
 		{ href: '/harta', label: 'Harta' },
+		{ href: '/banding', label: 'Bandingkan' },
 		{ href: '/panduan', label: 'Panduan' }
 	];
 
@@ -108,6 +109,7 @@
 					>{l.label}</a
 				>
 			{/each}
+			<a href="/lengkapi" class:current={aktif('/lengkapi')}>Lengkapi data</a>
 			<a href="/laporkan" class:current={aktif('/laporkan')}>Laporkan entri</a>
 			<a href="/submit" class="mobile-lapor">+ Laporkan pernyataan baru</a>
 		</nav>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fmtDate, splitHighlight, hostname } from '#lib/utils';
 	import { renderMarkdown } from '#lib/markdown';
+	import ShareButton from './ShareButton.svelte';
 
 	// Kartu kutipan gaya "eksibisi" — satu-satunya markup kutipan di situs.
 	// Nomor eksibisi (Q-01) harus unik & stabil, jadi berasal dari nomor urut
@@ -83,6 +84,7 @@
 				</svg>
 				Sunting
 			</a>
+			<ShareButton hash={`#p-${e.id}`} label="Bagikan" compact gambar={`/og/${e.id}`} />
 			<a class="act act-lapor" href={`/laporkan?entri=${e.id}`} title="Laporkan entri ini kalau tidak sesuai sumber">
 				<svg aria-hidden="true" viewBox="0 0 16 16" width="13" height="13">
 					<path d="M3.5 13.5V2.8c2.5-1 4.5 1 7 0v5.4c-2.5 1-4.5-1-7 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />

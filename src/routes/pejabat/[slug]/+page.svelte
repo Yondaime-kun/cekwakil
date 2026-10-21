@@ -2,6 +2,9 @@
 	import { fmtRp } from '#lib/utils';
 	import EntryCard from '#lib/components/EntryCard.svelte';
 	import ShareButton from '#lib/components/ShareButton.svelte';
+	import PejabatAvatar from '#lib/components/PejabatAvatar.svelte';
+	import { hitungButir, skorKelengkapan, labelSkor } from '#lib/kelengkapan';
+	import { SITE_URL } from '#lib/site';
 
 	let { data } = $props();
 	const person = $derived(data.person as Record<string, unknown>);
@@ -37,16 +40,25 @@
 			.map((b, i) => ({ ...b, no: String(i + 1).padStart(2, '0') }))
 	);
 
-	const inisial = $derived(
-		String(person.nama ?? '')
-			.replace(/[^A-Za-z\s]/g, '')
-			.trim()
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((w) => w[0]?.toUpperCase())
-			.join('')
+	const butirProfil = $derived(
+		hitungButir(
+			{
+				partai: person.partai as string | null,
+				dapil: person.dapil as string | null,
+				komisi: person.komisi as string | null,
+				suara: person.suara as number | null,
+				foto_url: person.foto_url as string | null,
+				wikipedia_url: person.wikipedia_url as string | null,
+				bio: person.bio as string | null,
+				sumber_bio: person.sumber_bio as string | null,
+				jumlah_kutipan: pernyataan.length
+			},
+			String(person.slug)
+		)
 	);
+	const skor = $derived(skorKelengkapan(butirProfil));
+	const status = $derived(labelSkor(skor));
+	const belum = $derived(butirProfil.filter((b) => !b.ada));
 </script>
 
 <svelte:head>
@@ -55,6 +67,17 @@
 		name="description"
 		content="Arsip kutipan {person.nama}, {person.jabatan}{person.partai ? ` (${person.partai})` : ''} — dengan tanggal, konteks, dan tautan sumber."
 	/>
+	<meta property="og:title" content={`${person.nama} — ${person.jabatan}`} />
+	<meta
+		property="og:description"
+		content={person.bio
+			? String(person.bio).slice(0, 180)
+			: `Profil dan arsip pernyataan ${person.nama}.`}
+	/>
+	<meta property="og:image" content={`${SITE_URL}/og/pejabat/${person.slug}`} />
+	<meta property="og:url" content={`${SITE_URL}/pejabat/${person.slug}`} />
+	<meta property="og:type" content="profile" />
+	<meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
 <section class="container section">
@@ -73,7 +96,7 @@
 		<p class="eyebrow">Profil pejabat</p>
 		<div class="mast-top">
 			<div class="mast-id">
-				<div class="avatar" aria-hidden="true">{inisial}</div>
+				<PejabatAvatar kelas="mast-avatar" nama={String(person.nama)} foto={person.foto_url ? String(person.foto_url) : null} />
 				<div class="minw">
 					<h1>{person.nama}</h1>
 					<p class="meta">
@@ -86,7 +109,8 @@
 				</div>
 			</div>
 			<div class="mast-actions">
-				<ShareButton />
+				<ShareButton gambar={`/og/pejabat/${person.slug}`} />
+				<a class="btn btn-secondary btn-sm" href={`/banding?a=${person.slug}`}>Bandingkan</a>
 				<a class="btn btn-secondary btn-sm" href={`/pejabat/${person.slug}/edit`}>Sunting profil</a>
 				{#if person.wikipedia_url}
 					<a
@@ -290,6 +314,31 @@
 			</div>
 
 			<div class="rail-card">
+				<div class="rail-head">
+					<h2>Kelengkapan</h2>
+					<span class="rule"></span>
+					<span class="skor num" class:penuh={skor === 100}>{skor}%</span>
+				</div>
+				<p class="status status-{status.nada}">{status.teks}</p>
+				<div class="meter" role="img" aria-label={`Profil terisi ${skor} persen`}>
+					<span style={`width:${skor}%`}></span>
+				</div>
+				{#if belum.length > 0}
+					<p class="rail-label2">Belum ada</p>
+					<ul class="kurang">
+						{#each belum as b (b.kunci)}
+							<li>
+								{#if b.tautan}<a href={b.tautan}>{b.label}<span aria-hidden="true">+</span></a
+									>{:else}{b.label}{/if}
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="helper">Semua kolom sudah terisi. Terima kasih.</p>
+				{/if}
+			</div>
+
+			<div class="rail-card">
 				<p class="rail-label">Lompat ke bagian</p>
 				<nav class="rail-nav">
 					{#each bagian as b (b.id)}
@@ -355,19 +404,8 @@
 	.minw {
 		min-width: 0;
 	}
-	.avatar {
-		flex: 0 0 auto;
-		width: 52px;
-		height: 52px;
-		display: grid;
-		place-items: center;
+	.mast-avatar {
 		margin-top: 10px;
-		border-radius: 50%;
-		font-size: 18px;
-		font-weight: 650;
-		color: var(--accent);
-		background: var(--accent-soft);
-		border: 1px solid var(--accent-line);
 	}
 	h1 {
 		max-width: 760px;
@@ -748,6 +786,73 @@
 		height: 1px;
 		background: var(--line);
 	}
+
+	/* --- kelengkapan profil --- */
+	.skor {
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--text-2);
+	}
+	.skor.penuh {
+		color: var(--ok);
+	}
+	.rail-card .status {
+		display: inline-block;
+		margin: 8px 0 0;
+	}
+	.meter {
+		height: 6px;
+		margin: 10px 0 4px;
+		border-radius: var(--radius-pill);
+		background: var(--n-100);
+		overflow: hidden;
+	}
+	.meter span {
+		display: block;
+		height: 100%;
+		border-radius: inherit;
+		background: var(--accent);
+		transition: width 0.4s var(--ease);
+	}
+	.rail-label2 {
+		margin: 14px 0 6px;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--text-3);
+	}
+	.kurang {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.kurang li {
+		font-size: 13px;
+	}
+	.kurang a {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 5px 0;
+		color: var(--text-2);
+		text-decoration: none;
+		border-bottom: 1px solid var(--line);
+	}
+	.kurang li:last-child a {
+		border-bottom: none;
+	}
+	.kurang a:hover {
+		color: var(--accent);
+	}
+	.kurang a span {
+		font-weight: 700;
+		color: var(--accent);
+	}
 	.rail-stats {
 		margin: 0;
 	}
@@ -870,7 +975,7 @@
 			flex-direction: column;
 			gap: 14px;
 		}
-		.avatar {
+		.mast-avatar {
 			width: 42px;
 			height: 42px;
 			font-size: 15px;

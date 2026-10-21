@@ -37,6 +37,7 @@
 		if (p.startsWith('/pejabat')) return 'direktori';
 		if (p.startsWith('/blunder')) return 'arsip';
 		if (p.startsWith('/harta')) return 'harta';
+		if (p.startsWith('/lengkapi') || p.startsWith('/banding')) return 'direktori';
 		if (p.startsWith('/panduan')) return 'panduan';
 		if (/^\/entri\/[^/]+\/(edit|riwayat)$/.test(p)) return 'form';
 		if (p.startsWith('/tinjau')) return 'daftar';

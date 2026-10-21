@@ -11,6 +11,7 @@
 		{
 			judul: 'Kontribusi',
 			links: [
+				{ href: '/lengkapi', label: 'Lengkapi data' },
 				{ href: '/submit', label: 'Lapor pernyataan' },
 				{ href: '/pejabat/tambah', label: 'Tambah profil pejabat' },
 				{ href: '/rekam', label: 'Tambah rekam jejak' },

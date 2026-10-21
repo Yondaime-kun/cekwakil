@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FotoPicker from '#lib/components/FotoPicker.svelte';
+
 	let { data, form } = $props();
 	let mengirim = $state(false);
 	const person = $derived(data.person as Record<string, unknown> | null);
@@ -101,6 +103,7 @@
 					/>
 					<p class="helper">Wajib kalau bio diisi — misalnya Wikipedia atau profil resmi instansi.</p>
 				</div>
+				<FotoPicker nama={String(person.nama)} fotoAwal={person.foto_url ? String(person.foto_url) : null} />
 				<button class="btn" type="submit" disabled={mengirim}>
 					{mengirim ? 'Menyimpan…' : 'Simpan perubahan'}
 				</button>

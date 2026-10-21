@@ -15,9 +15,11 @@ export const GET: RequestHandler = async () => {
 		{ path: '/blunder', prio: '0.9', freq: 'daily' },
 		{ path: '/pejabat', prio: '0.8', freq: 'weekly' },
 		{ path: '/harta', prio: '0.6', freq: 'weekly' },
+		{ path: '/banding', prio: '0.6', freq: 'weekly' },
 		{ path: '/panduan', prio: '0.5', freq: 'monthly' },
 		{ path: '/submit', prio: '0.4', freq: 'monthly' }
 		// /tinjau dan /entri/* sengaja tidak didaftarkan: noindex, bukan konten publik.
+		// /lengkapi juga tidak: itu ruang kerja kontributor, bukan halaman hasil.
 	];
 
 	const urls = [
