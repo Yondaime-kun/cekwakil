@@ -67,11 +67,33 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	if (!row) throw error(404, 'Tidak ditemukan');
 
-	// Ukuran font menyesuaikan panjang kutipan supaya tidak pernah meluap.
+	// Area kutipan: dari y=236 sampai garis kaki di y=(H-132), dikurangi
+	// ruang napas 26px. Baris maksimum = tinggi tersedia / tinggi baris.
+	const AREA_ATAS = 236;
+	const AREA_BAWAH = H - 132 - 26;
+	const AREA_TINGGI = AREA_BAWAH - AREA_ATAS; // 236
+
+	// Ukuran font menyesuaikan panjang kutipan. Ambangnya diturunkan sampai
+	// baris yang dibutuhkan benar-benar muat; tanpa ini kutipan panjang
+	// meluap menimpa nama pejabat di kaki kartu.
 	const panjang = row.isi.length;
-	const fontKutipan = panjang > 320 ? 34 : panjang > 200 ? 40 : panjang > 110 ? 48 : 58;
-	const maxChar = Math.floor((W - 160) / (fontKutipan * CHAR_W));
-	const baris = bungkus(row.isi, maxChar, 7);
+	// Sampai 24px: kutipan Panjang (430+ karakter) masih terbaca di pratinjau
+	// WhatsApp/Twitter, dan yang lebih penting tidak menimpa kaki kartu.
+	const kandidatFont = [58, 52, 46, 40, 36, 32, 28, 25, 22, 20];
+	let fontKutipan = kandidatFont[kandidatFont.length - 1];
+	let maxChar = 40;
+	let baris: string[] = [];
+	for (const f of kandidatFont) {
+		const mc = Math.floor((W - 160) / (f * CHAR_W));
+		const maksBaris = Math.max(2, Math.floor(AREA_TINGGI / (f * 1.42)));
+		const b = bungkus(row.isi, mc, maksBaris);
+		fontKutipan = f;
+		maxChar = mc;
+		baris = b;
+		// Muat kalau semua teks terpakai (tidak terpotong) atau sudah di font
+		// terkecil yang masih terbaca.
+		if (b.join(' ').replace(/…$/, '').length >= panjang - 2) break;
+	}
 	const lineH = Math.round(fontKutipan * 1.42);
 
 	const tanggal = new Date(row.tanggal).toLocaleDateString('id-ID', {
@@ -80,7 +102,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		year: 'numeric'
 	});
 
-	const awalKutipan = 236;
+	const awalKutipan = AREA_ATAS;
 
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kutipan ${esc(row.nama)}">
   <defs>
