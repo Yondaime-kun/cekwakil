@@ -153,6 +153,14 @@
 					<span class="f-label">Perolehan suara</span>
 					<span class="f-value num">{Number(person.suara).toLocaleString('id-ID')}</span>
 				</li>
+			{:else}
+				<!-- Sengaja tetap ditampilkan: menyembunyikan barisnya membuat
+				     pembaca mengira data lengkap, padahal 61 profil belum punya
+				     angka suara. Yang kosong harus terlihat kosong. -->
+				<li>
+					<span class="f-label">Perolehan suara</span>
+					<span class="f-value kosong">belum ada</span>
+				</li>
 			{/if}
 		</ul>
 
@@ -499,7 +507,16 @@
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 		border-top: 1px solid var(--line);
-		border-bottom: 1px solid var(--line);
+		/* Tanpa border-bottom: masthead sudah memberi garis penutup. Dua
+		   garis yang menempel (saat bio kosong) terbaca sebagai elemen
+		   kosong yang rusak. */
+	}
+	/* Sel facts yang datanya belum ada: tetap tampil, tapi jelas berbeda. */
+	.f-value.kosong {
+		font-size: 13px;
+		font-weight: 500;
+		color: var(--text-3);
+		font-style: italic;
 	}
 	.facts li {
 		display: flex;
@@ -509,6 +526,12 @@
 		padding: 12px 20px;
 		border-left: 1px solid var(--line);
 		min-width: 0;
+	}
+	/* Kalau selnya lebih dari empat (atau wrap di layar sempit), pisahkan
+	   baris dengan garis — tanpa ini baris kedua tampil tanpa konten
+	   karena hanya ada garis atas & bawah. */
+	.facts li:nth-child(n + 5) {
+		border-top: 1px solid var(--line);
 	}
 	.facts li:first-child {
 		border-left: none;
@@ -1073,6 +1096,10 @@
 		.facts li {
 			padding: 10px 14px;
 			min-height: 62px;
+		}
+		/* Dua kolom: baris kedua dan seterusnya butuh garis pemisah. */
+		.facts li:nth-child(n + 3) {
+			border-top: 1px solid var(--line);
 		}
 		.facts li:nth-child(odd) {
 			padding-left: 0;
