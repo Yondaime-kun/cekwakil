@@ -77,25 +77,41 @@
 
 	<ul class="stat">
 		<li>
-			<a href={href({ fokus: 'kutipan', page: null })} class={data.fokus === 'kutipan' ? 'on' : ''}>
+			<a
+				class="card statcard"
+				class:on={data.fokus === 'kutipan'}
+				href={href({ fokus: 'kutipan', page: null })}
+			>
 				<span class="n num">{ringkas.tanpaKutipan.toLocaleString('id-ID')}</span>
 				<span class="l">belum ada kutipan</span>
 			</a>
 		</li>
 		<li>
-			<a href={href({ fokus: 'foto', page: null })} class={data.fokus === 'foto' ? 'on' : ''}>
+			<a
+				class="card statcard"
+				class:on={data.fokus === 'foto'}
+				href={href({ fokus: 'foto', page: null })}
+			>
 				<span class="n num">{ringkas.tanpaFoto.toLocaleString('id-ID')}</span>
 				<span class="l">belum ada foto</span>
 			</a>
 		</li>
 		<li>
-			<a href={href({ fokus: 'komisi', page: null })} class={data.fokus === 'komisi' ? 'on' : ''}>
+			<a
+				class="card statcard"
+				class:on={data.fokus === 'komisi'}
+				href={href({ fokus: 'komisi', page: null })}
+			>
 				<span class="n num">{ringkas.tanpaKomisi.toLocaleString('id-ID')}</span>
 				<span class="l">komisi kosong</span>
 			</a>
 		</li>
 		<li>
-			<a href={href({ fokus: 'bio', page: null })} class={data.fokus === 'bio' ? 'on' : ''}>
+			<a
+				class="card statcard"
+				class:on={data.fokus === 'bio'}
+				href={href({ fokus: 'bio', page: null })}
+			>
 				<span class="n num">{ringkas.tanpaBio.toLocaleString('id-ID')}</span>
 				<span class="l">bio kosong</span>
 			</a>
@@ -133,7 +149,7 @@
 
 					<div class="isi">
 						<div class="meter" aria-hidden="true"><span style={`width:${r.skor}%`}></span></div>
-						<span class="status status-sm {nada(r.skor)} num">{r.skor}%</span>
+						<span class="status {nada(r.skor)} num">{r.skor}%</span>
 					</div>
 
 					<div class="kosong">
@@ -187,22 +203,21 @@
 		margin: 0 0 18px;
 		padding: 0;
 	}
-	.stat a {
+	/* .card menyediakan border/radius/shadow; di sini hanya yang berbeda. */
+	.statcard {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
 		padding: 14px 16px;
-		border: 1px solid var(--line);
-		border-radius: var(--radius-lg);
-		background: var(--surface);
 		text-decoration: none;
 		color: inherit;
 		transition: border-color 140ms var(--ease);
 	}
-	.stat a:hover {
+	.statcard:hover {
 		border-color: var(--line-strong);
+		text-decoration: none;
 	}
-	.stat a.on {
+	.statcard.on {
 		border-color: var(--accent);
 		background: var(--accent-soft);
 	}
@@ -216,14 +231,17 @@
 		color: var(--text-3);
 	}
 
+	/* Sama seperti .frow di /pejabat & /blunder: di layar sempit baris filter
+	   bisa digeser, tapi scrollbar-nya disembunyikan supaya tidak memotong
+	   layout. Di desktop chip cukup wrap seperti biasa. */
 	.filterbar {
 		margin-bottom: 16px;
-		overflow-x: auto;
 	}
 	.chips {
 		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 		gap: 6px;
-		min-width: max-content;
 	}
 	.chip.on {
 		border-color: var(--accent);
@@ -282,10 +300,6 @@
 		height: 100%;
 		background: var(--accent);
 	}
-	.status-sm {
-		font-size: 11.5px;
-		padding: 2px 7px;
-	}
 
 	.kosong {
 		display: flex;
@@ -318,6 +332,23 @@
 		justify-content: space-between;
 		gap: 16px;
 		padding: 20px;
+	}
+
+	@media (max-width: 720px) {
+		.filterbar {
+			overflow-x: auto;
+			scrollbar-width: none;
+			margin-right: -20px;
+			padding-right: 20px;
+			padding-bottom: 2px;
+		}
+		.filterbar::-webkit-scrollbar {
+			display: none;
+		}
+		.chips {
+			flex-wrap: nowrap;
+			min-width: max-content;
+		}
 	}
 
 	@media (max-width: 900px) {

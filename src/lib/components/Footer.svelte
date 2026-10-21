@@ -11,6 +11,7 @@
 		{
 			judul: 'Kontribusi',
 			links: [
+				{ href: '/kontribusi', label: 'Cara kerja & kontribusi' },
 				{ href: '/lengkapi', label: 'Lengkapi data' },
 				{ href: '/submit', label: 'Lapor pernyataan' },
 				{ href: '/pejabat/tambah', label: 'Tambah profil pejabat' },
@@ -21,6 +22,7 @@
 		{
 			judul: 'Data',
 			links: [
+				{ href: '/api/export?dataset=penuh', label: 'Cadangan lengkap' },
 				{ href: '/api/export?format=json', label: 'Unduh JSON' },
 				{ href: '/api/export?format=csv', label: 'Unduh CSV' },
 				{ href: '/sitemap.xml', label: 'Sitemap' }

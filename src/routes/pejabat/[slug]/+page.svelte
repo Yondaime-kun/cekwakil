@@ -31,8 +31,10 @@
 	// Bagian yang benar-benar ada isinya, dinomori berurutan untuk rail.
 	const bagian = $derived(
 		[
-			{ id: 'kasus', label: 'Kasus korupsi', ada: kasus.length > 0, n: kasus.length },
-			{ id: 'harta', label: 'Riwayat LHKPN', ada: harta.length > 0, n: harta.length },
+			// Kasus & harta selalu tampil (walau nol): komunitas minta arsip yang
+			// terlihat jujur soal apa yang BELUM tercatat, bukan yang menghilangkannya.
+			{ id: 'kasus', label: 'Kasus korupsi', ada: true, n: kasus.length },
+			{ id: 'harta', label: 'Riwayat LHKPN', ada: true, n: harta.length },
 			{ id: 'rekam', label: 'Rekam jejak', ada: rekam.length > 0, n: rekam.length },
 			{ id: 'pernyataan', label: 'Kutipan terarsip', ada: pernyataan.length > 0, n: pernyataan.length }
 		]
@@ -109,7 +111,20 @@
 				</div>
 			</div>
 			<div class="mast-actions">
-				<ShareButton gambar={`/og/pejabat/${person.slug}`} />
+				<ShareButton
+					isian={true}
+					dataKartu={{
+						jenis: 'profil',
+						nama: String(person.nama),
+						jabatan: String(person.jabatan),
+						meta: [person.jabatan, person.partai, person.dapil, person.komisi]
+							.filter(Boolean)
+							.join('  ·  '),
+						jumlahKutipan: pernyataan.length,
+						jumlahKasus: kasus.length,
+						foto: person.foto_url ? String(person.foto_url) : null
+					}}
+				/>
 				<a class="btn btn-secondary btn-sm" href={`/banding?a=${person.slug}`}>Bandingkan</a>
 				<a class="btn btn-secondary btn-sm" href={`/pejabat/${person.slug}/edit`}>Sunting profil</a>
 				{#if person.wikipedia_url}
@@ -153,7 +168,20 @@
 
 	<div class="body">
 		<div class="content">
-			{#if kasus.length > 0}
+			{#if kasus.length === 0}
+				<section id="kasus" class="blk kosong-blok">
+					<div class="blk-head"><h2>Kasus korupsi</h2></div>
+					<p class="small muted">
+						Tidak ada kasus korupsi yang tercatat di arsip ini untuk {person.nama}. Ini bukan bukti
+						bahwa tidak ada — arsip hanya memuat yang sudah dilaporkan dengan sumber.
+					</p>
+					<div class="blok-aksi">
+						<a class="btn btn-secondary btn-sm" href={`/rekam?pejabat=${person.slug}`}
+							>Laporkan rekam jejak</a
+						>
+					</div>
+				</section>
+			{:else}
 				<section id="kasus" class="blk">
 					<div class="blk-head">
 						<h2>Kasus korupsi</h2>
@@ -193,7 +221,20 @@
 				</section>
 			{/if}
 
-			{#if harta.length > 0}
+			{#if harta.length === 0}
+				<section id="harta" class="blk kosong-blok">
+					<div class="blk-head"><h2>Riwayat LHKPN</h2></div>
+					<p class="small muted">
+						Belum ada laporan harta (LHKPN) yang tercatat. Laporan resmi ada di e-LHKPN KPK — kalau
+						kamu mengutipnya, sertakan tautan dokumennya.
+					</p>
+					<div class="blok-aksi">
+						<a class="btn btn-secondary btn-sm" href={`/harta?pejabat=${person.slug}`}
+							>Tambah data LHKPN</a
+						>
+					</div>
+				</section>
+			{:else}
 				<section id="harta" class="blk">
 					<div class="blk-head">
 						<h2>Riwayat LHKPN</h2>
@@ -282,6 +323,8 @@
 								<EntryCard
 									e={p}
 									sumber={data.sumberMap[p.id as number] ?? []}
+									namaPejabat={String(person.nama)}
+									jabatanPejabat={String(person.jabatan)}
 									nomor={i + 1}
 								/>
 							</li>
@@ -302,15 +345,27 @@
 					</div>
 					<div>
 						<dt>Kasus tercatat</dt>
-						<dd class="num" class:zero={kasus.length === 0}>{kasus.length}</dd>
+						<dd class="num" class:zero={kasus.length === 0}>
+							{kasus.length}{#if kasus.length === 0}<span class="nol">tidak ada</span>{/if}
+						</dd>
 					</div>
 					<div>
-						<dt>Harta terakhir</dt>
-						<dd class="num">
-							{hartaTerakhir?.total_harta ? fmtRp(Number(hartaTerakhir.total_harta)) : '—'}
+						<dt>Harta terakhir (LHKPN)</dt>
+						<dd class="num" class:zero={!hartaTerakhir?.total_harta}>
+							{#if hartaTerakhir?.total_harta}
+								{fmtRp(Number(hartaTerakhir.total_harta))}
+							{:else}
+								—<span class="nol">belum dilaporkan</span>
+							{/if}
 						</dd>
 					</div>
 				</dl>
+				<p class="rail-note tiny">
+					Angka nol berarti <strong>belum ada di arsip</strong>, bukan berarti tidak pernah terjadi.
+					{#if kasus.length === 0}Kalau kamu punya sumbernya, <a href={`/laporkan?pejabat=${person.slug}`}
+								>laporkan</a
+							>.{/if}
+				</p>
 			</div>
 
 			<div class="rail-card">
@@ -876,6 +931,37 @@
 	}
 	.rail-stats dd.zero {
 		color: var(--text-3);
+	}
+	.rail-stats dd .nol {
+		display: block;
+		font-size: 11.5px;
+		font-weight: 500;
+		letter-spacing: 0;
+		color: var(--text-3);
+	}
+	.rail-note {
+		margin: 12px 0 0;
+		padding-top: 10px;
+		border-top: 1px solid var(--line);
+		color: var(--text-3);
+		line-height: 1.5;
+	}
+
+	/* Blok kosong: tetap tampil supaya "tidak tercatat" bukan berarti "tidak ada". */
+	.kosong-blok {
+		padding: 16px 18px;
+		border: 1px dashed var(--line-strong);
+		border-radius: var(--radius-lg);
+		background: var(--surface-sunken);
+	}
+	.kosong-blok .blk-head {
+		margin-bottom: 8px;
+	}
+	.kosong-blok p {
+		max-width: 66ch;
+	}
+	.blok-aksi {
+		margin-top: 12px;
 	}
 	.rail-label {
 		margin: 0 0 6px;

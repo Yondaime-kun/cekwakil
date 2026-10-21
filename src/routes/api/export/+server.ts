@@ -4,9 +4,62 @@ import { getDB } from '#lib/db';
 // Ekspor terbuka: siapa pun boleh mengambil dan mem-mirror seluruh dataset.
 const CACHE = 'public, max-age=600, s-maxage=3600';
 
+// Cadangan terdistribusi: satu request bisa mengunduh SELURUH dataset (pejabat,
+// kutipan, tag, kasus, LHKPN, rekam jejak) dalam satu JSON. Ini jawaban
+// praktis atas kekhawatiran "bagaimana kalau situsnya diblokir" — yang Anda
+// butuhkan adalah salinan datanya, bukan situsnya.
+type EksporPenuh = Record<string, unknown>;
+
 export const GET: RequestHandler = async ({ url }) => {
 	const db = getDB();
 	const format = (url.searchParams.get('format') ?? 'json').toLowerCase();
+
+	// ?dataset=penuh -> dump semua tabel untuk mirror/cadangan.
+	if (url.searchParams.get('dataset') === 'penuh') {
+		const [pejabat, pernyataan, tag, kasus, harta, rekam, sumber] = await Promise.all([
+			db.prepare(`SELECT * FROM pejabat ORDER BY id`).all(),
+			db.prepare(`SELECT * FROM pernyataan WHERE status='published' ORDER BY id`).all(),
+			db.prepare(`SELECT * FROM tag ORDER BY id`).all(),
+			db.prepare(`SELECT * FROM kasus_korupsi ORDER BY id`).all(),
+			db.prepare(`SELECT * FROM harta_kekayaan WHERE status='published' ORDER BY id`).all(),
+			db.prepare(`SELECT * FROM rekam_jejak WHERE status='published' ORDER BY id`).all(),
+			db.prepare(`SELECT * FROM sumber ORDER BY id`).all()
+		]);
+
+		const paket: EksporPenuh = {
+			source: 'CekWakil',
+			site: 'https://cekwakil.bond',
+			license: 'CC BY-SA 4.0',
+			generated_at: new Date().toISOString(),
+			total: {
+				pejabat: pejabat.results?.length ?? 0,
+				pernyataan: pernyataan.results?.length ?? 0,
+				tag: tag.results?.length ?? 0,
+				kasus_korupsi: kasus.results?.length ?? 0,
+				harta_kekayaan: harta.results?.length ?? 0,
+				rekam_jejak: rekam.results?.length ?? 0,
+				sumber: sumber.results?.length ?? 0
+			},
+			data: {
+				pejabat: pejabat.results ?? [],
+				pernyataan: pernyataan.results ?? [],
+				tag: tag.results ?? [],
+				sumber: sumber.results ?? [],
+				kasus_korupsi: kasus.results ?? [],
+				harta_kekayaan: harta.results ?? [],
+				rekam_jejak: rekam.results ?? []
+			}
+		};
+
+		const nama = `cekwakil-lengkap-${new Date().toISOString().slice(0, 10)}.json`;
+		return new Response(JSON.stringify(paket, null, 1), {
+			headers: {
+				'content-type': 'application/json; charset=utf-8',
+				'content-disposition': `attachment; filename="${nama}"`,
+				'cache-control': CACHE
+			}
+		});
+	}
 	const limit = Math.min(Number(url.searchParams.get('limit') ?? 5000) || 5000, 20000);
 	const pejabatSlug = url.searchParams.get('pejabat');
 

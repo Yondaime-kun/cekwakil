@@ -8,7 +8,8 @@
 		{ href: '/blunder', label: 'Arsip' },
 		{ href: '/harta', label: 'Harta' },
 		{ href: '/banding', label: 'Bandingkan' },
-		{ href: '/panduan', label: 'Panduan' }
+		{ href: '/panduan', label: 'Panduan' },
+		{ href: '/kontribusi', label: 'Kontribusi' }
 	];
 
 	let cariOpen = $state(false);

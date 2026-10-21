@@ -2,6 +2,7 @@
 	import { fmtDate, splitHighlight, hostname } from '#lib/utils';
 	import { renderMarkdown } from '#lib/markdown';
 	import ShareButton from './ShareButton.svelte';
+	import type { DataKartu } from '#lib/kartu';
 
 	// Kartu kutipan gaya "eksibisi" — satu-satunya markup kutipan di situs.
 	// Nomor eksibisi (Q-01) harus unik & stabil, jadi berasal dari nomor urut
@@ -12,6 +13,8 @@
 		e,
 		sumber = [],
 		tampilkanNama = false,
+		namaPejabat = '',
+		jabatanPejabat = '',
 		q = '',
 		ringkas = false,
 		nomor = 0
@@ -19,6 +22,10 @@
 		e: Record<string, unknown>;
 		sumber?: Sumber[];
 		tampilkanNama?: boolean;
+		// Dipakai kartu bagikan: kartu butuh nama & jabatan walaupun kartu
+		// entri di halaman ini tidak menampilkannya.
+		namaPejabat?: string;
+		jabatanPejabat?: string;
 		q?: string;
 		ringkas?: boolean;
 		nomor?: number;
@@ -33,6 +40,16 @@
 	// Konteks boleh markdown; kutipan di atas TIDAK (verbatim, plain text).
 	const konteksHtml = $derived(renderMarkdown(String(e.konteks ?? '')));
 	const kode = $derived(nomor > 0 ? `Q-${String(nomor).padStart(2, '0')}` : '');
+
+	// Data untuk kartu gambar yang dibuat di browser.
+	const kartu = $derived<DataKartu>({
+		jenis: 'kutipan',
+		isi: String(e.isi ?? ''),
+		kategori: String(e.kategori ?? ''),
+		tanggal: String(e.tanggal ?? ''),
+		nama: namaPejabat || String(e.nama ?? e.pejabat_nama ?? ''),
+		jabatan: jabatanPejabat || String(e.jabatan ?? '')
+	});
 </script>
 
 <article class="exhibit" id={`p-${e.id}`}>
@@ -84,7 +101,7 @@
 				</svg>
 				Sunting
 			</a>
-			<ShareButton hash={`#p-${e.id}`} label="Bagikan" compact gambar={`/og/${e.id}`} />
+			<ShareButton hash={`#p-${e.id}`} label="Bagikan" compact dataKartu={kartu} />
 			<a class="act act-lapor" href={`/laporkan?entri=${e.id}`} title="Laporkan entri ini kalau tidak sesuai sumber">
 				<svg aria-hidden="true" viewBox="0 0 16 16" width="13" height="13">
 					<path d="M3.5 13.5V2.8c2.5-1 4.5 1 7 0v5.4c-2.5 1-4.5-1-7 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -292,12 +309,20 @@
 		.aksi {
 			width: 100%;
 			margin-left: 0;
+			/* Empat butir + ikon: tanpa ini butir terakhir terpotong di 390px. */
+			min-width: 0;
 		}
 		.act {
 			flex: 1 1 0;
+			min-width: 0;
 			justify-content: center;
-			padding: 7px 4px;
-			font-size: 12px;
+			gap: 4px;
+			padding: 7px 3px;
+			font-size: 11.5px;
+			overflow: hidden;
+		}
+		.act svg {
+			flex: 0 0 auto;
 		}
 		.src-chip {
 			max-width: 130px;

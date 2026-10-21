@@ -27,7 +27,16 @@
 
 	// Petakan tujuan navigasi ke skeleton yang strukturnya mirip halaman itu,
 	// supaya transisi ke konten asli tidak terasa melompat.
-	type Varian = 'beranda' | 'arsip' | 'direktori' | 'profil' | 'harta' | 'panduan' | 'form' | 'daftar';
+	type Varian =
+		| 'beranda'
+		| 'arsip'
+		| 'direktori'
+		| 'profil'
+		| 'harta'
+		| 'panduan'
+		| 'dokumen'
+		| 'form'
+		| 'daftar';
 	const varian = $derived.by<Varian>(() => {
 		const p = navigating.to?.url.pathname ?? '';
 		if (p === '/' || p === '') return 'beranda';
@@ -39,6 +48,7 @@
 		if (p.startsWith('/harta')) return 'harta';
 		if (p.startsWith('/lengkapi') || p.startsWith('/banding')) return 'direktori';
 		if (p.startsWith('/panduan')) return 'panduan';
+		if (p.startsWith('/kontribusi')) return 'dokumen';
 		if (/^\/entri\/[^/]+\/(edit|riwayat)$/.test(p)) return 'form';
 		if (p.startsWith('/tinjau')) return 'daftar';
 		if (p.startsWith('/submit') || p.startsWith('/rekam') || p.startsWith('/laporkan'))

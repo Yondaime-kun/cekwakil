@@ -16,6 +16,7 @@ export const GET: RequestHandler = async () => {
 		{ path: '/pejabat', prio: '0.8', freq: 'weekly' },
 		{ path: '/harta', prio: '0.6', freq: 'weekly' },
 		{ path: '/banding', prio: '0.6', freq: 'weekly' },
+		{ path: '/kontribusi', prio: '0.7', freq: 'monthly' },
 		{ path: '/panduan', prio: '0.5', freq: 'monthly' },
 		{ path: '/submit', prio: '0.4', freq: 'monthly' }
 		// /tinjau dan /entri/* sengaja tidak didaftarkan: noindex, bukan konten publik.

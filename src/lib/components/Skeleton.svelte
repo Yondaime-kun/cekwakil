@@ -8,7 +8,16 @@
 	let {
 		variant = 'daftar'
 	}: {
-		variant?: 'beranda' | 'arsip' | 'direktori' | 'profil' | 'harta' | 'panduan' | 'form' | 'daftar';
+		variant?:
+			| 'beranda'
+			| 'arsip'
+			| 'direktori'
+			| 'profil'
+			| 'harta'
+			| 'panduan'
+			| 'dokumen'
+			| 'form'
+			| 'daftar';
 	} = $props();
 
 	// Lebar baris teks bervariasi seperti kalimat asli, bukan semua sama.
@@ -215,6 +224,29 @@
 				</ul>
 			</div>
 		</div>
+	{:else if variant === 'dokumen'}
+		<!-- Halaman berisi teks panjang berurutan (/kontribusi): judul, lalu
+		     beberapa blok bernomor, tanpa rail. -->
+		<header class="pagehead">
+			<span class="skeleton eyebrow"></span>
+			<span class="skeleton h1 big"></span>
+			<span class="skeleton lede"></span>
+			<span class="skeleton lede w80"></span>
+		</header>
+		{#each Array(3) as _, i (i)}
+			<div class="sec-head">
+				<span class="skeleton sec-title"></span>
+			</div>
+			<div class="narrowcol">
+				{#each Array(i === 0 ? 4 : 2) as _, j (j)}
+					<div class="fgroup">
+						<span class="skeleton sub sm"></span>
+						<span class="skeleton lede"></span>
+						<span class="skeleton lede w80"></span>
+					</div>
+				{/each}
+			</div>
+		{/each}
 	{:else if variant === 'form' || variant === 'panduan'}
 		<header class="pagehead">
 			<span class="skeleton eyebrow"></span>

@@ -177,11 +177,15 @@
 			{#each baris as r (r.label)}
 				<div class="baris">
 					<span class="lbl">{r.label}</span>
-					<span class="val num" class:tinggi={(r.na ?? -1) > (r.nb ?? -1) && (r.na ?? 0) !== (r.nb ?? 0)}
-						>{r.a}</span
+					<span
+						class="val num"
+						class:tinggi={(r.na ?? -1) > (r.nb ?? -1) && (r.na ?? 0) !== (r.nb ?? 0)}
+						><span class="who">{a.nama}</span><span class="angka">{r.a}</span></span
 					>
-					<span class="val num" class:tinggi={(r.nb ?? -1) > (r.na ?? -1) && (r.na ?? 0) !== (r.nb ?? 0)}
-						>{r.b}</span
+					<span
+						class="val num"
+						class:tinggi={(r.nb ?? -1) > (r.na ?? -1) && (r.na ?? 0) !== (r.nb ?? 0)}
+						><span class="who">{b.nama}</span><span class="angka">{r.b}</span></span
 					>
 				</div>
 			{/each}
@@ -323,6 +327,10 @@
 		font-weight: 700;
 		color: var(--accent);
 	}
+	/* Label nama hanya dipakai di tata letak mobile (lihat media query). */
+	.who {
+		display: none;
+	}
 
 	.kutipan-grid {
 		display: grid;
@@ -381,12 +389,50 @@
 		.dua {
 			grid-template-columns: 1fr;
 		}
-		.kepala,
+		/* Di layar sempit, dua kolom angka tidak terbaca (nama & nilai
+		   terpotong). Tiap baris jadi kartu kecil: label di atas, lalu nilai
+		   tiap pejabat dengan namanya — bukan tiga kolom yang dipaksa muat. */
+		.kepala {
+			display: none;
+		}
 		.baris {
-			grid-template-columns: minmax(90px, 0.8fr) 1fr 1fr;
-			gap: 6px;
-			padding-left: 12px;
-			padding-right: 12px;
+			display: block;
+			padding: 12px 14px;
+		}
+		.lbl {
+			display: block;
+			margin-bottom: 6px;
+			font-size: 11.5px;
+			font-weight: 600;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+		.val {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 3px 0;
+			font-size: 14.5px;
+		}
+		/* Nama pejabat sebagai label baris; di desktop disembunyikan karena
+		   sudah ada di kepala tabel. */
+		.who {
+			flex: 1 1 auto;
+			min-width: 0;
+			font-size: 13px;
+			font-weight: 500;
+			color: var(--text-3);
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.angka {
+			flex: 0 0 auto;
+			text-align: right;
+		}
+		.who {
+			display: block;
 		}
 		.kutipan-grid {
 			grid-template-columns: 1fr;
